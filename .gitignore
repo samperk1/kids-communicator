@@ -1,0 +1,37 @@
+# ─── SECRETS ────────────────────────────────────────────────────────────────
+# This repo is meant to be public. Nothing in this block may ever be committed.
+# The light build is designed to need NONE of these — if one of these files
+# appears, something has been added that puts a stranger's network at risk.
+**/wifi_creds.h
+**/ha_creds.h
+**/*_creds.h
+!**/*_creds.example.h
+**/secrets.h
+**/secrets.yaml
+*.pem
+*.key
+.env
+.env.*
+# Git credential store, if a token is cached per-repo (see docs/CONTRIBUTING.md)
+.git-credentials
+
+# ─── ESP-IDF BUILD OUTPUT ───────────────────────────────────────────────────
+firmware/build/
+firmware/sdkconfig
+firmware/sdkconfig.old
+firmware/managed_components/
+firmware/dependencies.lock
+# sdkconfig.defaults IS tracked. The generated sdkconfig is NOT: a stale one
+# silently wins over the defaults and costs hours. Learned the hard way.
+
+# ─── CAD ────────────────────────────────────────────────────────────────────
+# FreeCAD backups only. The .FCStd source and the exported STLs ARE tracked.
+*.FCBak
+*.FCStd1
+
+# ─── EDITORS / OS ───────────────────────────────────────────────────────────
+.DS_Store
+*.swp
+*~
+.vscode/
+.idea/
