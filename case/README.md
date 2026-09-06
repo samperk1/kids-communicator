@@ -3,37 +3,43 @@
 Three printed parts. **All three are original work by Sam Perkins**, designed in
 FreeCAD — this is not a remix of anyone else's model.
 
-| Part | File | Volume | Notes |
+| Part | File | Volume | Facets |
 |---|---|---|---|
-| Main body | `stl/case-body.stl` | 21,227 mm³ | Holds the display board, speaker and pack |
-| Back plate | `stl/back-plate.stl` | 19,485 mm³ | |
-| Display cover | `stl/display-cover.stl` | 15,158 mm³ | |
+| Main body | `stl/case-body.stl` | 21,227 mm³ | 26,740 |
+| Back plate | `stl/back-plate.stl` | 19,485 mm³ | 22,680 |
+| Display cover | `stl/display-cover.stl` | 15,158 mm³ | 28,396 |
 
-All three export as **closed, valid solid meshes**.
+All three are closed, valid solid meshes.
 
-## What is deliberately NOT here
+## Source
 
-The FreeCAD document contains four **mockup solids** used only as fit
-references. None of them is a printed part and none is exported:
+`source/kids-communicator-case.FCStd` — FreeCAD 1.0. Modify it freely; that is
+why it is here.
 
-- `PCB (Solid)` — the **manufacturer's 3D model of the ESP32-S3 display board**.
-  The only piece of third-party geometry anywhere in the project.
-- `battery mockup`, `speaker mock`, `pcm mockup` — Sam's own stand-ins for the
-  pack, the speaker and the PCM5102A board.
+**The manufacturer's 3D model of the ESP32-S3 display board has been removed
+from this copy.** It was the only piece of third-party geometry in the project,
+used purely as a fit reference, and removing it means everything published here
+is original work with nothing borrowed to account for.
 
-## ⚠️ If you open the FreeCAD source, recompute before you export
+Removing it changes nothing about the parts. Verified, not assumed: the three
+printable bodies keep byte-identical geometry (same volumes, same facet counts)
+because the SubShapeBinders that referenced the board had already cached the
+geometry they needed. As a bonus the document is now **completely free of
+invalid shapes** — the vendor model was the only object in the file that
+reported one — and the file dropped from 4.2MB to 1.9MB.
 
-The saved document carries **stale computed shapes**. Opened as-is, the main
-body reports `isValid() == False` — 13 of its 114 faces are bad, the feature
-tree goes wrong at `Fillet017`, and the errors read `Self-intersecting wire`
-and a run of `Unorientable shape`. An STL exported from that state is **not a
-solid mesh**.
+If you are fitting a *different* board, you will want to bring in your own
+model and re-cut the openings.
 
-None of that is a real modelling error. Forcing a full recompute (touch every
-object, then recompute) clears all 13 bad faces, the body comes back valid, and
-the exported mesh is solid. The volume also shifts very slightly — 21,247 mm³
-stale versus 21,227 mm³ recomputed — so the stale shape really was out of date,
-not merely flagged.
+## ⚠️ If you regenerate the STLs, recompute first
 
-**The STLs in `stl/` were exported from the recomputed geometry**, so they are
-correct as shipped. This note matters only if you regenerate them yourself.
+FreeCAD can save a document with **stale computed shapes**. When that happens
+the main body reports `isValid() == False`, the errors read `Self-intersecting
+wire` and `Unorientable shape`, and the exported STL is *not a solid mesh* —
+none of which is a real modelling error.
+
+The cure is a full recompute: right-click the document name at the top of the
+Model tree, choose **Mark to recompute**, then **Edit → Refresh** (Ctrl+R — it
+stays greyed out until something is marked), then save.
+
+The STLs in `stl/` were exported from correctly recomputed geometry.
