@@ -5657,7 +5657,8 @@ static void msg_tick(lv_timer_t *t)
 
 #define T9_MAX  100                /* input_text.kids_message caps at 100 */
 #define T9_DIG  10                 /* longest word we will predict        */
-#define T9_CAND 4                  /* candidates shown at once            */
+#define T9_CAND 3                  /* candidates shown at once (+ ABC)    */
+#define T9_CELLS 6                 /* most cells the candidate row holds  */
 
 static char        t9_buf[T9_MAX + 1];      /* committed text            */
 static int         t9_len;
@@ -5666,6 +5667,30 @@ static int         t9_dlen;
 static const char *t9_cands[12];
 static int         t9_ncand, t9_sel;
 static lv_obj_t   *t9_text, *t9_cand_mx, *t9_keys_mx;
+
+/* ✏️ SPELL MODE — for the words the dictionary does not have, names above all.
+ *
+ * The builder, 2026-10-08: "some thing that is not working well with prodictive is
+ * names i was not able to use name". The dictionary has no proper nouns and
+ * multi-tap is gone, so a name could not be typed at all.
+ *
+ * 🔑 NO TIMEOUT. Multi-tap's 900ms commit window was the hardest part of it for
+ * a slow child (see above). Here a key press puts ITS LETTERS in the candidate
+ * row - A B C - and the child taps the one they want. Two taps a letter,
+ * nothing to time, and the letters on screen are the instruction.
+ *
+ * The first letter is a capital, because the word being spelled is usually a
+ * name; "Aa" flips the case of the next letter. Key 1 gives ' and - so
+ * "O'Neil" can be spelled. Finishing the word (space, SEND or Done) saves it
+ * as a personal word on this handset, and T9 offers it from then on. */
+static bool t9_spell;
+static char t9_sp[16];
+static int  t9_splen;
+static char t9_sp_key;                      /* key awaiting a letter, 0 none */
+static bool t9_sp_caps;
+static const char *const T9_LETTERS[10] = {
+    "", "'-", "abc", "def", "ghi", "jkl", "mno", "pqrs", "tuv", "wxyz"
+};
 
 /* 🔑 WHO THE MESSAGE IS FOR — A VISIBLE ROW, NOT A HIDDEN GESTURE.
  *
@@ -5716,8 +5741,8 @@ static void t9_to_clicked(lv_event_t *e)
 /* The candidate row is ONE lv_btnmatrix with a rebuilt map, not four buttons.
  * Same reason as the keypad below: every LVGL object on this board comes out of
  * INTERNAL RAM, and internal RAM is what WiFi needs. */
-static char        t9_cand_txt[T9_CAND][14];
-static const char *t9_cand_map[T9_CAND + 1];
+static char        t9_cand_txt[T9_CELLS][18];
+static const char *t9_cand_map[T9_CELLS + 1];
 
 /* ⚠️ NOT const, and the last caption is a BUFFER: the inbox cell carries a
  * count that changes while the screen exists, and lv_btnmatrix keeps the map
@@ -5740,18 +5765,41 @@ static const char *t9_pending_word(void)
     return t9_digits;
 }
 
+/* The candidate row, in one of three shapes:
+ *   predicting:          [*good] [home] [gone] [ABC]
+ *   spelling, idle:      [Aa: ABC] [Done]
+ *   spelling, key 2 hit: [A] [B] [C] [Aa]
+ * t9_cand_event() decodes a tap against the same shape. */
 static void t9_cands_draw(void)
 {
-    int n = t9_ncand > T9_CAND ? T9_CAND : t9_ncand;
     int m = 0;
-    for (int i = 0; i < n; i++) {
-        snprintf(t9_cand_txt[i], sizeof(t9_cand_txt[i]), "%s%s",
-                 i == t9_sel ? "*" : "", t9_cands[i]);
-        t9_cand_map[m++] = t9_cand_txt[i];
-    }
-    if (!m) {           /* an empty map is not legal; one blank cell is */
-        strcpy(t9_cand_txt[0], " ");
-        t9_cand_map[m++] = t9_cand_txt[0];
+    if (t9_spell) {
+        if (t9_sp_key) {
+            for (const char *l = T9_LETTERS[t9_sp_key - '0']; *l; l++) {
+                char c = *l;
+                if (t9_sp_caps && c >= 'a' && c <= 'z') c = (char)(c - 32);
+                t9_cand_txt[m][0] = c; t9_cand_txt[m][1] = 0;
+                t9_cand_map[m] = t9_cand_txt[m]; m++;
+            }
+            strcpy(t9_cand_txt[m], "Aa");
+            t9_cand_map[m] = t9_cand_txt[m]; m++;
+        } else {
+            strcpy(t9_cand_txt[m], t9_sp_caps ? "Aa: ABC" : "Aa: abc");
+            t9_cand_map[m] = t9_cand_txt[m]; m++;
+            strcpy(t9_cand_txt[m], LV_SYMBOL_OK " Done");
+            t9_cand_map[m] = t9_cand_txt[m]; m++;
+        }
+    } else {
+        int n = t9_ncand > T9_CAND ? T9_CAND : t9_ncand;
+        for (int i = 0; i < n; i++) {
+            snprintf(t9_cand_txt[m], sizeof(t9_cand_txt[m]), "%s%s",
+                     i == t9_sel ? "*" : "", t9_cands[i]);
+            t9_cand_map[m] = t9_cand_txt[m]; m++;
+        }
+        /* Always there, never a hidden gesture: the word a child cannot find
+         * is exactly when they need to see that spelling it is possible. */
+        strcpy(t9_cand_txt[m], "ABC");
+        t9_cand_map[m] = t9_cand_txt[m]; m++;
     }
     t9_cand_map[m] = "";
     lv_btnmatrix_set_map(t9_cand_mx, t9_cand_map);
@@ -5768,11 +5816,15 @@ static void t9_draw(void)
             s_send_state == 3 ? C_RED : s_send_state == 2 ? C_GREEN : C_AMBER, 0);
         return;
     }
-    char shown[T9_MAX + T9_DIG + 8];
-    snprintf(shown, sizeof(shown), "%s%s%s", t9_buf, t9_pending_word(),
-             t9_dlen ? "_" : "");
-    lv_label_set_text(t9_text, (t9_len || t9_dlen) ? shown : "type a message");
-    lv_obj_set_style_text_color(t9_text, (t9_len || t9_dlen) ? C_INK : C_MUTED, 0);
+    char shown[T9_MAX + T9_DIG + 24];
+    if (t9_spell)
+        snprintf(shown, sizeof(shown), "%s%s_   (spelling)", t9_buf, t9_sp);
+    else
+        snprintf(shown, sizeof(shown), "%s%s%s", t9_buf, t9_pending_word(),
+                 t9_dlen ? "_" : "");
+    bool any = t9_len || t9_dlen || t9_spell;
+    lv_label_set_text(t9_text, any ? shown : "type a message");
+    lv_obj_set_style_text_color(t9_text, any ? C_INK : C_MUTED, 0);
     t9_cands_draw();
     t9_to_draw();
 
@@ -5803,6 +5855,54 @@ static void t9_digit(char d)
     t9_digits[t9_dlen]   = 0;
     t9_ncand = t9_lookup(t9_digits, t9_cands, 12);
     t9_sel   = 0;
+    t9_draw();
+}
+
+/* ---- spell mode ---- */
+static void t9_spell_start(void)
+{
+    /* Whatever digits were pending did not make the word, which is why ABC
+     * was pressed: drop them rather than commit a wrong guess. */
+    t9_dlen = 0; t9_digits[0] = 0; t9_ncand = 0; t9_sel = 0;
+    t9_spell = true; t9_splen = 0; t9_sp[0] = 0; t9_sp_key = 0;
+    t9_sp_caps = true;
+    t9_draw();
+}
+
+/* Put the spelled word into the message, save it as a personal word, and go
+ * back to predicting. */
+static void t9_spell_finish(bool add_space)
+{
+    if (t9_splen) {
+        for (const char *p = t9_sp; *p && t9_len < T9_MAX; p++) t9_buf[t9_len++] = *p;
+        t9_buf[t9_len] = 0;
+        t9_user_add(t9_sp);
+    }
+    if (add_space && t9_splen && t9_len < T9_MAX) {
+        t9_buf[t9_len++] = ' '; t9_buf[t9_len] = 0;
+    }
+    t9_spell = false; t9_splen = 0; t9_sp[0] = 0; t9_sp_key = 0;
+    t9_draw();
+}
+
+static void t9_spell_letter(char c)
+{
+    if (t9_splen < (int)sizeof(t9_sp) - 1) {
+        t9_sp[t9_splen++] = c;
+        t9_sp[t9_splen] = 0;
+    }
+    t9_sp_key = 0;
+    t9_sp_caps = false;            /* a capital for the first letter only */
+    t9_draw();
+}
+
+/* '#' while spelling: drop the key that is waiting for a letter, else the last
+ * letter, else leave spell mode. */
+static void t9_spell_del(void)
+{
+    if (t9_sp_key)      t9_sp_key = 0;
+    else if (t9_splen)  t9_sp[--t9_splen] = 0;
+    else                t9_spell = false;
     t9_draw();
 }
 
@@ -5849,6 +5949,7 @@ static void t9_punct(void)
 static void t9_send_clicked(lv_event_t *e)
 {
     (void)e;
+    if (t9_spell) t9_spell_finish(false);    /* a spelled word is part of it */
     if (t9_dlen) t9_commit_word(false);      /* never send a half-typed word */
     if (!t9_len) { applog("[t9] send pressed with nothing typed"); return; }
     applog("[t9] sending \"%s\"", t9_buf);
@@ -5912,6 +6013,20 @@ static void t9_tick(lv_timer_t *t)
 static void t9_matrix_event(lv_event_t *e)
 {
     uint32_t id = lv_btnmatrix_get_selected_btn(lv_event_get_target(e));
+    if (t9_spell) {
+        switch (id) {
+        case T9_ID_NEXT:  break;                        /* nothing to cycle */
+        case T9_ID_SPACE: t9_spell_finish(true);  break;
+        case T9_ID_DEL:   t9_spell_del();          break;
+        case T9_ID_BACK:  t9_spell = false; ui_show_home(); break;
+        case T9_ID_SEND:  t9_send_clicked(NULL);   break;
+        case T9_ID_INBOX: t9_spell = false; ui_show_inbox(); break;
+        default:
+            if (id < 9) { t9_sp_key = (char)('1' + id); t9_draw(); }
+            break;
+        }
+        return;
+    }
     switch (id) {
     case T9_ID_NEXT:  t9_next_cand();       break;
     case T9_ID_SPACE: t9_commit_word(true); t9_draw(); break;
@@ -5930,7 +6045,28 @@ static void t9_matrix_event(lv_event_t *e)
 static void t9_cand_event(lv_event_t *e)
 {
     uint32_t id = lv_btnmatrix_get_selected_btn(lv_event_get_target(e));
-    if ((int)id < t9_ncand) { t9_sel = (int)id; t9_draw(); }
+    if (id == LV_BTNMATRIX_BTN_NONE) return;
+    if (t9_spell) {
+        if (t9_sp_key) {
+            const char *l = T9_LETTERS[t9_sp_key - '0'];
+            int nl = (int)strlen(l);
+            if ((int)id < nl) {
+                char c = l[id];
+                if (t9_sp_caps && c >= 'a' && c <= 'z') c = (char)(c - 32);
+                t9_spell_letter(c);
+            } else if ((int)id == nl) {
+                t9_sp_caps = !t9_sp_caps; t9_draw();
+            }
+        } else if (id == 0) {
+            t9_sp_caps = !t9_sp_caps; t9_draw();
+        } else if (id == 1) {
+            t9_spell_finish(true);
+        }
+        return;
+    }
+    int shown = t9_ncand > T9_CAND ? T9_CAND : t9_ncand;
+    if ((int)id < shown)       { t9_sel = (int)id; t9_draw(); }
+    else if ((int)id == shown) t9_spell_start();
 }
 
 static void build_t9_screen(void)
@@ -5963,7 +6099,7 @@ static void build_t9_screen(void)
     /* The candidates, above the keys and below the text: the eye is already
      * there, and it is the row that changes on every press. */
     t9_cand_mx = lv_btnmatrix_create(scr_t9);
-    t9_cand_txt[0][0] = ' '; t9_cand_txt[0][1] = 0;
+    strcpy(t9_cand_txt[0], "ABC");
     t9_cand_map[0] = t9_cand_txt[0];
     t9_cand_map[1] = "";
     lv_btnmatrix_set_map(t9_cand_mx, t9_cand_map);
@@ -6126,6 +6262,7 @@ void ui_show_t9(void)
     t9_len = 0; t9_buf[0] = 0;
     t9_dlen = 0; t9_digits[0] = 0;
     t9_ncand = 0; t9_sel = 0;
+    t9_spell = false; t9_splen = 0; t9_sp[0] = 0; t9_sp_key = 0;
     t9_draw();
     ui_load(scr_t9);
 }

@@ -1,21 +1,15 @@
 # Photographs
 
-Drop pictures here. Suggested names so the README and the parts list can link
-them without being rewritten each time:
-
-| Filename | What it should show |
+| File | Shows |
 |---|---|
-| `hero.jpg` | One finished handset, held or on a desk — the picture at the top of the README |
-| `fleet.jpg` | Several together, so people can see it is a real fleet |
-| `parts-*.jpg` | One per part in the parts list: the board, speaker, mic, pack, SD card |
-| `assembly-1.jpg`, `assembly-2.jpg` … | The build, in order |
-| `screen-menu.jpg`, `screen-text.jpg`, `screen-game.jpg` | The UI, photographed on the device |
-| `printed-parts.jpg` | The three case pieces before assembly |
-
-Landscape, in focus, and lit well enough to see detail. Big files are fine —
-they can be resized on the way in.
-
-⚠️ **Check every photograph before it is committed.** Once this repo is public,
-anything visible in a picture is public: wifi passwords on a router, a screen
-showing real names or messages, mail, faces of the kids. Git history keeps a
-deleted photo forever, so it has to be caught **before** the commit, not after.
+| `home-screen.jpg` | The home screen: Music, Comms, Games, Talkie and the Text button |
+| `mainscreenkids.jpg` | The home screen on a named handset |
+| `talkie.jpg`, `walkietalkie.jpg` | The walkie-talkie, with and without another handset in range |
+| `comms.jpg` | The push-to-talk assistant screen (needs an optional gateway) |
+| `games.jpg` | The games menu |
+| `flamingo.jpg` | Flamingo, the tap-to-fly game |
+| `menu.jpg`, `menu2.jpg`, `menu4.jpg`, `menu5.jpg`, `settings-unnamed.jpg` | Pages of the settings menu |
+| `blueandwhitebackandtop.jpg`, `blueandwhiteside.jpg` | Two printed cases, closed and open |
+| `inside.jpg` | Inside the case: board, battery, speaker and headphone board |
+| `headphonejack.jpg` | The optional PCM5102A headphone board, wired |
+| `theesp32-s32.8.jpg` | The ES3C28P board as it arrives |

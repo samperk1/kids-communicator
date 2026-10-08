@@ -15,7 +15,8 @@ August 2026.
 
 ## What it does
 
-- **Text messages** between handsets, typed on a T9 keypad
+- **Text messages** between handsets, typed on a T9 keypad with predictive text
+  (filtered for children) and a spell mode for names
 - **Walkie-talkie**: live voice, push to talk, to one handset or to everyone
 - **Games played handset to handset**: tic-tac-toe, Connect 4, checkers,
   Battleship, Hearts, Tanks (artillery, with wind) and Uno for up to four
@@ -74,7 +75,7 @@ read the note there before regenerating the STLs from the FreeCAD source.
 | Case STLs | ✅ Three printable parts, plus the 2026-10-06 revision as one combined mesh |
 | Case FreeCAD source | ✅ Included, vendor board model removed |
 | Map | 🧪 Experimental |
-| Predictive-text dictionary | ⏳ Not published yet; the keypad falls back to plain digits |
+| Predictive text | ✅ Filtered for children; names are spelled once and remembered per handset |
 | Parts list | ⏳ Photographs being taken |
 | Licence | ✅ GPL-3.0, see `LICENSE`, with third-party credits in `NOTICE.md` |
 

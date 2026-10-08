@@ -15,6 +15,22 @@
 # Git credential store, if a token is cached per-repo (see docs/CONTRIBUTING.md)
 .git-credentials
 
+# ─── PRIVATE NOTES ──────────────────────────────────────────────────────────
+# Working notes from the family project never belong in this repo: handoffs,
+# plans, logs and research briefs are written fast, for one reader, and are
+# exactly where a name or a network detail ends up.
+**/HANDOFF*
+**/*-PLAN.md
+**/*_PLAN.md
+**/WORKLOG*
+**/NIGHT-*
+**/night-report*
+**/RESEARCH-*
+private/
+*.orig
+*.rej
+*.bak*
+
 # ─── ESP-IDF BUILD OUTPUT ───────────────────────────────────────────────────
 firmware/build/
 firmware/sdkconfig

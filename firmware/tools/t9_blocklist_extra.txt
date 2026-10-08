@@ -1,0 +1,12 @@
+# Words the LDNOOBW list does not carry but a dictionary on a CHILD'S device must
+# not offer. Same format: one word per line, '#' starts a comment.
+crap
+damn
+retard
+retarded
+dike
+dyke
+chink
+wanker
+piss
+pissed

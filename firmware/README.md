@@ -41,12 +41,32 @@ rebuilding. A stale `sdkconfig` silently wins over the defaults.
 | `main/lvgl_hook/lv_psram.h` | Moves LVGL's object pool to PSRAM (put on LVGL's include path by `main/CMakeLists.txt`) |
 | `main/sprites/` | Game sprites, **generated**: edit `art/sprites.py` and run `tools/png2lvgl.py` |
 | `partitions.csv` | 6 MB app, plus a 1 MB data partition for the predictive-text dictionary |
+| `tools/build_t9_dict.py`, `data/t9.dic` | The predictive-text dictionary and how it is built |
 
-## Not here yet
+## Predictive text
 
-- **The predictive-text dictionary.** `idf.py flash` does not write the `t9dic`
-  partition, and the dictionary and its build script are not published yet. Without
-  it the keypad still works; it just shows digits instead of suggesting words.
+`idf.py flash` does not write the dictionary; it lives in its own partition.
+Write it once per handset:
+
+```sh
+tools/flash_t9.sh /dev/ttyACM0
+```
+
+Without it the keypad still works, but shows digits instead of suggesting words.
+
+`data/t9.dic` is ready-built. `tools/build_t9_dict.py` rebuilds it from Debian's
+`wamerican` word list (`/usr/share/dict/american-english`), and **filters it for
+a child's device**: swear words and slurs are removed using
+`tools/t9_blocklist.txt` plus `tools/t9_blocklist_extra.txt`, while
+`tools/t9_allowlist.txt` keeps everyday words the filter would otherwise catch
+("butter", "sucks", "xx"). Built with `wamerican` 2020.12.07; a different version
+of the word list gives a slightly different file.
+
+**Names** are not in the dictionary. Tap **ABC** on the keypad to spell a word
+letter by letter (press a key, then tap the letter you want; the first letter is
+a capital). The word is saved on that handset and offered as a suggestion from
+then on, so a family's names stay on its handsets and never go into a published
+file.
 
 The comments in the source are long on purpose. Most of them record why something
 is the way it is, usually because the obvious version was tried on real hardware

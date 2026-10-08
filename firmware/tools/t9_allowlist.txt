@@ -1,0 +1,43 @@
+# Words on the blocklist that children legitimately send, kept in the dictionary.
+# Each is here on purpose; review before adding more.
+butt
+suck
+sucks
+# kisses at the end of a message
+xx
+escort
+domination
+snatch
+scat
+skeet
+eunuch
+shrimping
+# Ordinary words the inflection rule would otherwise catch ("butt" + "er",
+# "spic" + "y"). Found by listing every word removed ONLY by that rule.
+butter
+butters
+buttes
+butted
+butting
+butts
+scatter
+scatters
+scatted
+scatting
+spiced
+spices
+spicing
+spicy
+titter
+titters
+monger
+mongers
+crapes
+dicker
+dickers
+cocked
+cocking
+cocky
+spunky
+fingerings
+damned
