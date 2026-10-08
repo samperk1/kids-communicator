@@ -1,0 +1,245 @@
+CONFIG_IDF_TARGET="esp32s3"
+CONFIG_CODEC_I2C_BACKWARD_COMPATIBLE=n
+
+# --- Board: Hosyond/LCDwiki 2.8" ESP32-S3 (ES3C28P) ---
+CONFIG_ESPTOOLPY_FLASHSIZE_16MB=y
+CONFIG_PARTITION_TABLE_SINGLE_APP_LARGE=y
+
+# --- 8MB octal PSRAM @80MHz ---
+CONFIG_SPIRAM=y
+CONFIG_SPIRAM_MODE_OCT=y
+CONFIG_SPIRAM_SPEED_80M=y
+CONFIG_SPIRAM_USE_MALLOC=y
+
+# --- minimp3 needs ~32KB of stack. The default 3584 fails as a LoadProhibited
+#     on a garbage address inside a trivial function, which reads as a random
+#     bug rather than stack exhaustion. ---
+CONFIG_ESP_MAIN_TASK_STACK_SIZE=32768
+
+# --- Long filenames are mandatory: /music/<Artist>/<Album>/<Track>.mp3 ---
+CONFIG_FATFS_LFN_HEAP=y
+CONFIG_FATFS_MAX_LFN=255
+
+# --- Log to USB-Serial-JTAG as well as UART0, so the USB-C lead alone works ---
+CONFIG_ESP_CONSOLE_SECONDARY_USB_SERIAL_JTAG=y
+
+# --- LVGL 8.4, configured through its Kconfig rather than an lv_conf.h ---
+CONFIG_LV_CONF_SKIP=y
+CONFIG_LV_COLOR_DEPTH_16=y
+CONFIG_LV_COLOR_16_SWAP=y
+CONFIG_LV_MEM_CUSTOM=y
+CONFIG_LV_MEMCPY_MEMSET_STD=y
+CONFIG_LV_DISP_DEF_REFR_PERIOD=20
+CONFIG_LV_INDEV_DEF_READ_PERIOD=20
+CONFIG_LV_FONT_MONTSERRAT_10=y
+CONFIG_LV_FONT_MONTSERRAT_12=y
+CONFIG_LV_FONT_MONTSERRAT_14=y
+CONFIG_LV_FONT_MONTSERRAT_16=y
+CONFIG_LV_FONT_MONTSERRAT_22=y
+CONFIG_LV_USE_LOG=n
+
+# 6MB app partition — see partitions.csv for why.
+CONFIG_PARTITION_TABLE_CUSTOM=y
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"
+
+# Console on the NATIVE USB, not UART0.
+# The only USB socket on this board is the S3's own USB-Serial/JTAG. With the
+# console left on UART0 (GPIO43/44) nothing reaches a host over that cable, so
+# a boot log or a panic backtrace is invisible unless a separate USB-UART
+# adapter is soldered on. It also frees 43/44.
+CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y
+
+# Bulk upload tuning. The voice path POSTs 100-250KB of WAV to HA's speech-to-
+# text, and the stock 5760-byte send buffer is four packets — it caps throughput
+# at window/RTT no matter how good the radio is. Measured 2026-08-14: the upload
+# stalled at exactly one socket buffer every time.
+# Kept at 32KB rather than 64KB deliberately: internal RAM sits at ~66KB free
+# once WiFi is up, and these come out of it.
+CONFIG_LWIP_TCP_SND_BUF_DEFAULT=16384
+CONFIG_LWIP_TCP_WND_DEFAULT=16384
+CONFIG_ESP_WIFI_TX_BA_WIN=16
+
+# 🚨 The system event task logs via applog() from WiFi event handlers, and the
+# 2304-byte default overflowed into FreeRTOS structures during repeated WiFi
+# connect/disconnect cycles (LoadProhibited in xQueueGiveMutexRecursive,
+# 2026-08-15). applog now uses a 256-byte buffer too; both changes together.
+CONFIG_ESP_SYSTEM_EVENT_TASK_STACK_SIZE=4608
+
+# 🚨 TCP MSS 1440 built 1480-byte packets that never got ACKed on the path to
+# HA: the STT upload stopped at EXACTLY one socket buffer (16384) and crawled at
+# 545 B/s, every attempt, 2026-08-15. Small packets always worked — ping, and
+# the 640-byte UDP walkie-talkie. Whether the cause is a reduced path MTU or a
+# marginal link dropping big frames, smaller segments survive both.
+CONFIG_LWIP_TCP_MSS=1200
+
+# 🔑 LET WIFI AND lwIP ALLOCATE FROM PSRAM.
+# This was OFF, so every WiFi/lwIP buffer came from internal RAM while 7.6MB of
+# PSRAM sat idle — and the STT upload starves at ~2.9KB internal free while the
+# first 16KB (the socket buffer) flies at ~1MB/s. 2026-08-15.
+CONFIG_SPIRAM_TRY_ALLOCATE_WIFI_LWIP=y
+
+# 🚨 ...BUT PIN THE BUFFER COUNTS BACK DOWN, OR THE OPTION CRASHES THE BOARD.
+#
+# Turning the option above on makes IDF silently RAISE the WiFi buffer defaults
+# (esp_wifi/Kconfig: static RX 10 -> 16, and TX is forced Static at 16). Static
+# RX and TX buffers are DMA-capable, so they MUST come from internal RAM — the
+# option therefore COSTS about 30KB of internal RAM at esp_wifi_init() before it
+# saves a single byte. Measured on hardware 2026-08-16, four identical crashes:
+#
+#   [wifi] init, internal free 56887
+#   wifi: Init static tx buffer num: 16      <- 25.6KB internal, gone
+#   wifi: malloc buffer fail
+#   wifi: Expected to init 16 rx buffer, actual is 6
+#   [wifi] esp_wifi_init FAILED: ESP_ERR_NO_MEM
+#
+# 16 RX + 16 TX at 1.6KB each is ~51KB of the ~57KB free — it cannot fit, and it
+# never could. Both symbols are plain ints (RX range 2-25, TX range 1-64), so the
+# raised numbers are only DEFAULTS and can be pinned. RX back to stock 10, TX to
+# 8 (the option forces Static TX on, it cannot go back to Dynamic).
+# Net: ~22KB more internal RAM than the crashing build, while lwIP and the 32
+# cache TX buffers still get to live in PSRAM, which was the point.
+# 🚨 TRIMMED AGAIN 2026-08-17, BECAUSE BLE NOW SHARES THIS BUDGET.
+#
+# With the BLE controller resident (~31KB internal, DMA-bound, cannot go to
+# PSRAM) plus the T9 screen's LVGL objects, esp_wifi_init() sits exactly on the
+# edge: it succeeded at 56927 bytes free and failed at 51291 in the same
+# session, which is what "sometimes it sends" looks like from the outside.
+#
+# Each static buffer is ~1.6KB of INTERNAL RAM. 10+8 -> 8+4 gives back about
+# 9.6KB, which is the difference between hovering on the threshold and clearing
+# it.
+#
+# ⚠️ RX CANNOT GO BELOW 8 WITHOUT ALSO LOWERING THE AGGREGATION WINDOW. IDF
+# enforces RX_BA_WIN <= 2 x STATIC_RX_BUFFER_NUM at COMPILE time (a #error in
+# wifi_init.c, not a runtime surprise). With TX_BA_WIN at 16, 6 buffers fails
+# the check. Dropping the BA window instead would cost download throughput,
+# which is what internet radio depends on - so RX stops at 8 and the saving
+# comes from TX, which only bulk uploads use.
+#
+# ⚠️ THE COST IS THROUGHPUT ON BULK UPLOADS, AND THAT MATTERS FOR VOICE. Text
+# messages are a few hundred bytes and will not notice. The 100-250KB STT
+# upload might: fewer RX buffers means less in flight before the driver has to
+# drop and retransmit. If Talk gets slow or starts stalling, THIS is the first
+# thing to put back.
+# ✅ PUT BACK 2026-08-17 once the MP3 decoder stack moved to PSRAM.
+#
+# These were cut to 8/4 earlier the same evening to buy internal RAM for BLE.
+# It was enough for a few-hundred-byte text POST and NOT enough to pull down a
+# TTS mp3: the STT upload and the LLM reply both succeeded and then
+#
+#   W wifi:malloc buffer fail
+#   [ha] /api/tts_proxy/....mp3 failed: ESP_ERR_HTTP_FETCH_HEADER
+#   [tts] no audio: -1
+#
+# — the assistant answered in text and could not speak. The builder, 2026-08-17: "the
+# only thing that didt work was the tts". With ~94KB free at wifi init instead
+# of ~60KB, starving the radio to save 9.6KB is no longer a trade worth making.
+CONFIG_ESP_WIFI_STATIC_RX_BUFFER_NUM=10
+CONFIG_ESP_WIFI_STATIC_TX_BUFFER_NUM=8
+
+# ============================================================================
+# BLE signalling — RAM GATE, 2026-08-17.
+#
+# 🔑 THE ANSWER TO "CAN BLE LIVE IN PSRAM LIKE WIFI/lwIP DOES": HALF OF IT CAN.
+#
+# BLE is two pieces and they have different rules:
+#   - The NimBLE HOST (GAP/GATT/L2CAP, the protocol logic) allocates through a
+#     configurable strategy, and CAN be pointed entirely at PSRAM with
+#     BT_NIMBLE_MEM_ALLOC_MODE_EXTERNAL. This is the direct equivalent of
+#     SPIRAM_TRY_ALLOCATE_WIFI_LWIP.
+#   - The CONTROLLER (the link layer, on the S3 this is the C3-family BLE
+#     controller) has NO SPIRAM option anywhere in its Kconfig. Its buffers are
+#     touched from interrupt context, so they are internal-only for the same
+#     reason WiFi's static RX/TX buffers are. Checked in
+#     components/bt/controller/esp32c3/Kconfig.in — the symbol does not exist.
+#
+# So the controller cost is a floor that cannot be moved to PSRAM; the lever
+# there is BT_CTRL_BLE_MAX_ACT, which is 828 bytes per instance by its own help
+# text. 6 is the default; this design needs advertise + scan + one connection.
+# ============================================================================
+CONFIG_BT_ENABLED=y
+CONFIG_BT_NIMBLE_ENABLED=y
+
+# Controller: 3 instances (adv + scan + 1 connection), not the stock 6.
+CONFIG_BT_CTRL_BLE_MAX_ACT=3
+
+# One conversation at a time is all a handset can have.
+CONFIG_BT_NIMBLE_MAX_CONNECTIONS=1
+
+# ⚠️ THE VARIABLE UNDER TEST. Flip between INTERNAL and EXTERNAL and re-measure
+# the same three numbers; the difference is what PSRAM actually buys for BLE.
+CONFIG_BT_NIMBLE_MEM_ALLOC_MODE_EXTERNAL=y
+
+# 🔑 MOVE THE STATIC .bss OF THE RADIO STACKS TO PSRAM.
+# Per components/esp_psram/Kconfig.spiram.common: this automatically relocates
+# the BSS of `lwip`, `net80211`, `pp` AND `bt`. That is the one lever that can
+# pay for BLE and WiFi being resident at the same time — the BLE controller's
+# heap allocations are DMA-bound and internal-only, but its statics are not.
+CONFIG_SPIRAM_ALLOW_BSS_SEG_EXTERNAL_MEMORY=y
+
+# 🔎 CONTIGUITY, NOT TOTAL FREE. esp_wifi_init() failed at 51291 bytes free and
+# succeeded at 57199 in the same session — the shortage is DMA-capable
+# CONTIGUOUS space, and the largest free internal block was measured falling
+# 31744 -> 27648 -> 19456 -> 11776 across BLE/WiFi cycles.
+#
+# ❌ TRIED AND IT DOES NOTHING: raising SPIRAM_MALLOC_RESERVE_INTERNAL from
+# 32768 to 65536 moved wifi-init headroom by ~600 bytes (58303 -> 57715). The
+# reserve stops malloc() handing internal RAM to PSRAM-eligible allocations, but
+# ALWAYSINTERNAL below already forces everything under its threshold into
+# internal RAM, so the reserve never gets a chance to matter. Left at the
+# default; do not spend another evening on it.
+CONFIG_SPIRAM_MALLOC_RESERVE_INTERNAL=32768
+
+# 🔑 THE LEVER THAT ACTUALLY GOVERNS THIS.
+#
+# The IDF default is 16384: EVERY allocation smaller than that is forced into
+# internal RAM, no matter how much PSRAM is free. On a board whose UI is
+# hundreds of small LVGL objects, that is why the T9 keypad alone cost ~14KB of
+# the memory WiFi needs, and why 8MB of PSRAM sat idle while esp_wifi_init()
+# failed with ESP_ERR_NO_MEM.
+#
+# ❌ ALSO TRIED AND IT DOES NOTHING AT 1024: wifi-init headroom moved by ~500
+# bytes (58303 -> 57787). LVGL objects are a few HUNDRED bytes each, so a
+# 1024-byte threshold still forces every one of them internal. Only 0 would
+# actually shift them, and that is a different risk class - see below. Left at
+# the IDF default.
+#
+# ⚠️ THIS IS THE RISKY ONE, AND HERE IS WHY. Anything that DMAs from a plain
+# malloc() buffer breaks: PSRAM is not DMA-capable, and the failure is a crash
+# or silent corruption, not an allocation error. Correct code asks for
+# MALLOC_CAP_DMA explicitly - the LVGL draw buffer and the I2S paths here
+# already do - but any library that assumes malloc() returns DMA-able memory is
+# now wrong. If something starts failing in a way that makes no sense, put this
+# back to 16384 FIRST.
+CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL=16384
+CONFIG_ESP_PHY_CALIBRATION_MODE=2
+CONFIG_LV_FONT_MONTSERRAT_40=y
+CONFIG_LV_MEM_CUSTOM_INCLUDE="lv_psram.h"
+
+# 🔑 THE FLEET IS 8 HANDSETS BUT THE ENCRYPTED-PEER CEILING DEFAULTS TO 7.
+#
+# espnow.c holds s_peers[8], so with the 8th handset paired the last
+# esp_now_add_peer() would fail and NOTHING would say so — that handset would be
+# heard by everyone (the beacon is broadcast) and answerable by nobody. Set
+# above the peer table so the table is always the binding limit.
+#
+# The ceiling is shared with SoftAP connections. This build is WIFI_MODE_STA
+# only (net.c, the single esp_wifi_set_mode call), so raising it costs nothing.
+CONFIG_ESP_WIFI_ESPNOW_MAX_ENCRYPT_NUM=10
+
+# ---- USB card mode (usbmsc.c) ----
+#
+# 🔑 The SD card appears on the PC as a drive, so map tiles and music get onto
+# it without opening the case. The builder's slot is deliberately awkward to reach so
+# the kids cannot lose the cards, and pulling it means a power cut — which on a
+# GPS handset throws away an almanac that took all night to collect.
+#
+# ⚠️ MSC_BUFSIZE is INTERNAL RAM, statically allocated whether or not USB card
+# mode is ever entered. 512 (the S3 default) is one sector per transfer and
+# makes a 37 MB write crawl; 8192 is the compromise. Watch the internal-RAM
+# figure in the build output if this is ever raised — lwIP allocates from the
+# same pool, and a handset with 1.4 KB free uploads at 1 KB/s.
+CONFIG_TINYUSB_MSC_ENABLED=y
+CONFIG_TINYUSB_MSC_BUFSIZE=8192
+CONFIG_TINYUSB_DESC_MANUFACTURER_STRING="Communicator"
+CONFIG_TINYUSB_DESC_PRODUCT_STRING="Communicator SD"

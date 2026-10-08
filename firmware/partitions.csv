@@ -1,0 +1,28 @@
+# 16MB flash, and the stock "single app large" table only handed the app 1500K.
+# Adding WiFi + HTTP for voice took the binary from 703KB to 1.36MB, i.e. 89% of
+# that partition, which leaves no room for the walkie-talkie work or OTA.
+#
+# nvs and phy_init keep their existing offsets and sizes ON PURPOSE — settings
+# saved by a previous build survive this change. Only the app partition grows.
+#
+# Name,     Type, SubType,  Offset,   Size
+nvs,        data, nvs,      0x9000,   24K
+phy_init,   data, phy,      0xf000,   4K
+factory,    app,  factory,  0x10000,  6M
+
+# 🔑 THE T9 DICTIONARY, IN ITS OWN PARTITION AND MEMORY-MAPPED.
+#
+# 52,419 words, 484KB, built by espnow-link/tools/build_t9_dict.py — the same
+# file the CYD handset uses, byte for byte. It is read-only for the life of the
+# board, so it wants a partition and not a filesystem: t9.c maps it with
+# esp_partition_mmap() and addresses the words directly in flash, costing ZERO
+# PSRAM for the text itself.
+#
+# ⚠️ ADDED AFTER `factory`, SO NOTHING MOVES. nvs keeps its offset and every
+# setting saved by an older build survives the change — same rule the app
+# partition growth followed.
+#
+# ⚠️ IT IS NOT PART OF THE APP IMAGE. `idf.py flash` does NOT write it; a board
+# needs the dictionary flashed once at 0x610000 (see tools/flash_t9.sh). Without
+# it the keypad still works, it just shows the raw digits instead of words.
+t9dic,      data, 0x40,     0x610000, 1M

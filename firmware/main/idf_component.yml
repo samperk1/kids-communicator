@@ -1,0 +1,14 @@
+## IDF Component Manager Manifest File
+dependencies:
+  # Built and tested on ESP-IDF 5.3.
+  idf: ">=5.3"
+  # LVGL 8.4, stock. The only local change the family build made to LVGL is
+  # one header (main/lvgl_hook/lv_psram.h), injected by main/CMakeLists.txt.
+  lvgl/lvgl: "8.4.0"
+  espressif/esp_codec_dev: ^1.3.4
+  # USB Mass Storage: the SD card mounts on the PC without opening the case.
+  # esp_tinyusb 2.x: 1.7.6 does not build on IDF 6.0 (esp_vfs_fat_register went
+  # from 4 args to 2). 2.3.0 declares idf >=5.0, so it runs on 5.3 as well —
+  # which is why this port is done HERE first, with one variable changed.
+  espressif/esp_tinyusb: "^2.3.0"
+  espressif/tinyusb: ">=0.21.0~1"
