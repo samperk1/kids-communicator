@@ -140,6 +140,9 @@ void settings_load(void)
     if (nvs_get_str(h, "name", s_cfg.name, &nlen) != ESP_OK) s_cfg.name[0] = 0;
     get_i32(h, "alrm",  &s_cfg.alarm_hhmm);
     get_i32(h, "batt",  &s_cfg.batt_fitted);
+    get_i32(h, "nowch", &s_cfg.now_channel);   /* see settings_flush() */
+    get_i32(h, "wtrad", &s_cfg.wt_radio);
+    get_i32(h, "wtrng", &s_cfg.wt_range);
     size_t sz = sizeof(s_cfg.cal);
     if (nvs_get_blob(h, "cal", &s_cfg.cal, &sz) != ESP_OK) s_cfg.cal.valid = 0;
 
@@ -190,9 +193,9 @@ void settings_load(void)
     }
     nvs_close(h);
 
-    ESP_LOGI(TAG, "loaded: vol=%d sink=%d resume=%d/%d timeout=%ds",
+    ESP_LOGI(TAG, "loaded: vol=%d sink=%d resume=%d/%d timeout=%ds channel=%d",
              s_cfg.volume, s_cfg.sink, s_cfg.last_album, s_cfg.last_track,
-             s_cfg.screen_timeout);
+             s_cfg.screen_timeout, settings_espnow_channel());
 }
 
 void settings_flush(void)
@@ -222,6 +225,16 @@ void settings_flush(void)
     nvs_set_i32(h, "alrm",  s_cfg.alarm_hhmm);
     nvs_set_i32(h, "batt",  s_cfg.batt_fitted);
     nvs_set_i32(h, "calgen", s_cfg.calgen);
+    /* 🚨 THESE THREE WERE NEVER SAVED (found 2026-10-08). Each setter
+     * marked the config dirty and this function wrote everything EXCEPT them, so
+     * a channel picked on the menu worked until the next reboot or deep sleep and
+     * then fell back to 6 - every handset quietly on 6 while the family had
+     * moved to 11, deaf to each other. The builder: "it resets to ch 6 when the hand set
+     * goes to sleep". Talkie radio and Talkie range had the same hole. A new
+     * field needs a line HERE and in settings_load(), or it is RAM only. */
+    nvs_set_i32(h, "nowch", s_cfg.now_channel);
+    nvs_set_i32(h, "wtrad", s_cfg.wt_radio);
+    nvs_set_i32(h, "wtrng", s_cfg.wt_range);
     nvs_set_blob(h, "cal", &s_cfg.cal, sizeof(s_cfg.cal));
     nvs_commit(h);
     nvs_close(h);

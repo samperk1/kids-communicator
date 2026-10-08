@@ -204,6 +204,9 @@ static int64_t seconds_to_alarm(void)
 
 void power_sleep_now(void)
 {
+    /* settings_tick() saves 3s after a change; "Sleep now" pressed inside that
+     * window would otherwise lose it - a channel change included. */
+    settings_flush();
     int64_t alarm_s = seconds_to_alarm();
 
     applog("[power] sleeping%s", alarm_s > 0 ? " (alarm armed)" : "");
