@@ -23,7 +23,9 @@ Notes that will save you money:
 | Speaker | ⏳ |
 | Microphone | ⏳ |
 | Battery | ⏳ Lithium pouch cell — **must have a protection circuit at the tab** |
-| microSD card | Any reasonable size; music only |
+| microSD card | Any reasonable size; music and map tiles |
+| GPS module *(optional)* | ⏳ ATGM336H-class UART module. Only needed for the map and the clock |
+| Headphone board *(optional)* | ⏳ PCM5102A I2S DAC with a 3.5 mm jack, for wired headphones |
 | Fasteners | ⏳ |
 
 ## Printed parts

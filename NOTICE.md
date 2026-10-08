@@ -1,0 +1,42 @@
+# Notices and credits
+
+## This project
+
+Copyright (C) 2026 samperk1 (https://github.com/samperk1).
+
+The firmware, the case design (`case/`), the documentation and the game art are
+licensed under the **GNU General Public License, version 3** — see
+[`LICENSE`](LICENSE). In short: you may build, use, change and share it, and if
+you share a changed version you must share its source under the same licence.
+
+The handset case is original work, designed from scratch in FreeCAD. The game
+sprites are original, drawn as ASCII grids and converted to C arrays.
+
+## Third-party software built into the firmware
+
+Each of these keeps its own licence. The full texts are in
+[`LICENSES/`](LICENSES/).
+
+| Component | What it does here | Licence | Text |
+|---|---|---|---|
+| [ESP-IDF](https://github.com/espressif/esp-idf) (Espressif) | The SDK the firmware is built on: RTOS, ESP-NOW radio, drivers, Mbed TLS | Apache-2.0 | `LICENSES/Apache-2.0.txt` |
+| [esp_codec_dev](https://components.espressif.com/components/espressif/esp_codec_dev) (Espressif) | Audio codec driver | Apache-2.0 | `LICENSES/Apache-2.0.txt` |
+| [esp_tinyusb](https://components.espressif.com/components/espressif/esp_tinyusb) (Espressif) | USB glue for the SD-card-as-drive mode | Apache-2.0 | `LICENSES/Apache-2.0.txt` |
+| [TinyUSB](https://github.com/hathach/tinyusb) (Ha Thach) | USB stack | MIT | `LICENSES/MIT-TinyUSB.txt` |
+| [LVGL](https://lvgl.io) (LVGL Kft) | The user interface | MIT | `LICENSES/MIT-LVGL.txt` |
+| [Montserrat](https://github.com/JulietaUla/Montserrat) (The Montserrat Project Authors) | The UI typeface, built into LVGL | SIL OFL 1.1 | `LICENSES/OFL-1.1-Montserrat.txt` |
+| [minimp3](https://github.com/lieff/minimp3) (lieff) | MP3 decoding | CC0-1.0 (public domain) | `LICENSES/CC0-1.0.txt` |
+| [DejaVu Sans Bold](https://dejavu-fonts.github.io/) | The playing-card suit symbols, converted to an LVGL font | Bitstream Vera licence | `LICENSES/Bitstream-Vera-DejaVu.txt` |
+
+ESP-IDF, esp_codec_dev, esp_tinyusb, TinyUSB and LVGL are not modified and are
+not copied into this repository: the ESP-IDF component manager fetches them at
+build time. The firmware adds one header to LVGL's include path
+(`firmware/main/lvgl_hook/lv_psram.h`, this project's own code) to move its
+memory pool to PSRAM. minimp3 (`firmware/main/minimp3.h`) and the converted
+DejaVu font are copied in, unmodified apart from the font conversion.
+
+## Hardware
+
+The ES3C28P display board (ESP32-S3, 2.8" IPS, capacitive touch) is a
+commercial product and is not part of this repository. No vendor CAD, schematic
+or firmware is included.

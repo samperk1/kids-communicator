@@ -11,6 +11,13 @@ FreeCAD — this is not a remix of anyone else's model.
 
 All three are closed, valid solid meshes.
 
+### Newer revision (2026-10-06)
+
+`stl/complete-case-2026-10-06.stl` is the latest revision of the design, exported
+as **one combined mesh** (119 × 56 × 27 mm). It is published as-is so the newest
+shape is available; the three separate printable parts and the FreeCAD source
+above are the earlier revision and have not yet been re-exported from it.
+
 ## Source
 
 `source/kids-communicator-case.FCStd` — FreeCAD 1.0. Modify it freely; that is
