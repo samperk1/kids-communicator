@@ -5044,8 +5044,15 @@ static void fl_row_clicked(lv_event_t *e)
         if (!fleet_has_pmk()) return;     /* nothing to derive a key from */
         espnow_pair_with(idx);
     } else {                              /* -(slot+1) => a roster entry */
+        /* 🚨 espnow_unpair(), NOT fleet_remove(). fleet_remove() only wipes the
+         * stored key; the radio kept encrypting to that MAC with the old LMK,
+         * so the very next pair offer went out ENCRYPTED and the other end -
+         * which no longer holds that key - dropped it silently. Found
+         * 2026-10-08 re-pairing handsets with a gateway: removing worked, pairing
+         * again never did. espnow_unpair() was written for exactly this and had
+         * no caller. */
         const fleet_peer_t *p = fleet_at(-idx - 1);
-        if (p) fleet_remove(p->mac);
+        if (p) espnow_unpair(p->id);
     }
     fleet_refresh();
 }
