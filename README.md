@@ -9,9 +9,12 @@ subscription.** Turn two on anywhere and they find each other.
 Two handsets, recorded straight from their own screens: first-time setup,
 pairing, music, Connect 4 played between the two, the talkie, and Solitaire.
 
-https://github.com/user-attachments/assets/b2dabb0a-016c-4b05-8e15-62bc8102ddb3
-
-https://github.com/user-attachments/assets/813134ef-224e-45d3-b05b-8c8cf97b7fe8
+<table>
+  <tr>
+    <td width="50%"><video src="https://github.com/user-attachments/assets/b2dabb0a-016c-4b05-8e15-62bc8102ddb3" controls muted width="100%"></video></td>
+    <td width="50%"><video src="https://github.com/user-attachments/assets/813134ef-224e-45d3-b05b-8c8cf97b7fe8" controls muted width="100%"></video></td>
+  </tr>
+</table>
 
 *Comms (asking questions out loud) at the end of the Kid 1 video uses the
 optional home gateway, which is not in this repo yet.*
