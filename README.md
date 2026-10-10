@@ -5,7 +5,7 @@ https://github.com/user-attachments/assets/b2dabb0a-016c-4b05-8e15-62bc8102ddb3
 
 
 https://github.com/user-attachments/assets/813134ef-224e-45d3-b05b-8c8cf97b7fe8
-"Comms works with the optional home gateway".
+# "Comms works with the optional home gateway".
 # kids-communicator
 
 A handheld communicator for kids. Two or more of them talk to each other
