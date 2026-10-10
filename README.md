@@ -1,16 +1,20 @@
-
-
-https://github.com/user-attachments/assets/b2dabb0a-016c-4b05-8e15-62bc8102ddb3
-
-
-
-https://github.com/user-attachments/assets/813134ef-224e-45d3-b05b-8c8cf97b7fe8
-# "Comms works with the optional home gateway".
 # kids-communicator
 
 A handheld communicator for kids. Two or more of them talk to each other
 directly over the air — **no wifi, no internet, no account, no server, and no
 subscription.** Turn two on anywhere and they find each other.
+
+## See it working
+
+Two handsets, recorded straight from their own screens: first-time setup,
+pairing, music, Connect 4 played between the two, the talkie, and Solitaire.
+
+https://github.com/user-attachments/assets/b2dabb0a-016c-4b05-8e15-62bc8102ddb3
+
+https://github.com/user-attachments/assets/813134ef-224e-45d3-b05b-8c8cf97b7fe8
+
+*Comms (asking questions out loud) at the end of the Kid 1 video uses the
+optional home gateway, which is not in this repo yet.*
 
 Built by a dad for his four kids, who have been carrying them daily since
 August 2026.
