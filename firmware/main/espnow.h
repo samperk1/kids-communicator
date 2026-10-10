@@ -238,6 +238,10 @@ bool        espnow_unpair(uint16_t id);
 
 int         espnow_peer_count(void);
 const char *espnow_peer_name(int i);
+/* "nobody on ch 6" - what every game and the talkie show when no handset can
+ * be heard. Naming the channel is the hint: two handsets on different
+ * channels, or on one crowded by WiFi, look exactly like nobody being there. */
+const char *espnow_nobody_text(void);
 /* The two ids are what decide who plays first in a game: lower id is X. Both
  * handsets compute the same answer from the same two numbers, so there is no
  * negotiation to race. */

@@ -28,6 +28,8 @@
 #include "display.h"
 #include "applog.h"
 #include "settings.h"
+#include "screencap.h"
+#include <stdlib.h>
 
 static const char *TAG = "disp";
 
@@ -354,6 +356,9 @@ static void flush_cb(lv_disp_drv_t *drv, const lv_area_t *area, lv_color_t *px)
     /* One transaction for the whole dirty rectangle — see the note at the top
      * of this file about why this is not done row by row. */
     lcd_data((const uint8_t *)px, w * h * sizeof(lv_color_t));
+#if SCREEN_CAPTURE
+    screencap_region(area, px);      /* panel first: the screen never waits */
+#endif
 
     lv_disp_flush_ready(drv);
 }
@@ -423,7 +428,7 @@ static int s_cal_wild;
 
 uint32_t display_indev_polls(void) { return s_indev_polls; }
 
-static void indev_cb(lv_indev_drv_t *drv, lv_indev_data_t *data)
+static void indev_read(lv_indev_drv_t *drv, lv_indev_data_t *data)
 {
     int rx, ry;
     s_indev_polls++;
@@ -519,6 +524,23 @@ static void indev_cb(lv_indev_drv_t *drv, lv_indev_data_t *data)
     }
 }
 
+/* Capture builds also report each touch, so the video can draw a tap dot.
+ * Only changes are sent: press, release, and moves of 3px or more. */
+static void indev_cb(lv_indev_drv_t *drv, lv_indev_data_t *data)
+{
+    indev_read(drv, data);
+#if SCREEN_CAPTURE
+    static bool down;
+    static int lx, ly;
+    bool p = data->state == LV_INDEV_STATE_PRESSED;
+    if (p != down || (p && (abs(data->point.x - lx) >= 3 ||
+                            abs(data->point.y - ly) >= 3))) {
+        down = p; lx = data->point.x; ly = data->point.y;
+        screencap_touch(lx, ly, p);
+    }
+#endif
+}
+
 static void tick_cb(void *arg) { lv_tick_inc(1); }
 
 void display_init(void)
@@ -562,6 +584,9 @@ void display_init(void)
     s_disp_drv.flush_cb = flush_cb;
     s_disp_drv.draw_buf = &s_draw_buf;
     lv_disp_drv_register(&s_disp_drv);
+#if SCREEN_CAPTURE
+    screencap_init();
+#endif
 
     lv_indev_drv_init(&s_indev_drv);
     s_indev_drv.type    = LV_INDEV_TYPE_POINTER;

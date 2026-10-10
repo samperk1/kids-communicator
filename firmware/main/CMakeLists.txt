@@ -14,7 +14,7 @@ set(COMM_NET_SRCS "light_stubs.c" "voice.c")
 
 idf_component_register(
     SRCS "main.c" "display.c" "library.c" "player.c" "ui.c" "battery.c" "faves.c"
-         "settings.c" "applog.c" "audio.c" "mic.c" "wt.c" "power.c"
+         "settings.c" "applog.c" "audio.c" "mic.c" "wt.c" "power.c" "screencap.c"
          ${COMM_NET_SRCS}
          "ble.c" "msg.c" "t9.c" "espnow.c" "games.c" "flamingo.c" "tanks.c" "adpcm.c" "fleet.c" "ask.c"
          "lv_font_cards_16.c" "lv_font_cards_26.c" "art.c"
@@ -83,3 +83,16 @@ target_compile_definitions(${COMPONENT_LIB} PUBLIC COMM_LIGHT=1)
 # path. See lvgl_hook/lv_psram.h for why.
 idf_component_get_property(lvgl_lib lvgl__lvgl COMPONENT_LIB)
 target_include_directories(${lvgl_lib} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/lvgl_hook")
+
+# SCREEN_CAPTURE — stream the screen over USB for videos and screenshots
+# (screencap.c, tools/screencap.py). Off by default; use its own build dir:
+#     idf.py -B build-capture -DSCREEN_CAPTURE=ON build
+if(SCREEN_CAPTURE)
+    target_compile_definitions(${COMPONENT_LIB} PUBLIC SCREEN_CAPTURE=1)
+endif()
+
+# COMM_DEV_MENU — show the bench instruments in Settings (GPS field test, SD
+# log, GPS dumps, raw speaker gain). Off by default.
+if(COMM_DEV_MENU)
+    target_compile_definitions(${COMPONENT_LIB} PUBLIC COMM_DEV_MENU=1)
+endif()

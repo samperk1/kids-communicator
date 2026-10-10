@@ -527,14 +527,14 @@ static void ttt_vs_status(void)
 {
     if (!ttt_status) return;            /* screen not built yet */
     if (ttt_peer < 0) {
-        lv_label_set_text(ttt_status, "nobody in range");
+        lv_label_set_text(ttt_status, espnow_nobody_text());
         return;
     }
     if (ttt_over) return;
     const char *pn = espnow_peer_name(ttt_peer);
-    lv_label_set_text_fmt(ttt_status, "%s  -  %c vs %s",
-                          ttt_turn == ttt_me ? "Your turn" : "Their turn",
-                          ttt_me, pn ? pn : "?");
+    (void)pn;   /* the "vs:" box beside this line already names them */
+    if (ttt_turn == ttt_me) lv_label_set_text_fmt(ttt_status, "Your turn - %c", ttt_me);
+    else                    lv_label_set_text(ttt_status, "Their turn");
 }
 
 /* Adopt a board that arrived. No merging and no cleverness: the sender's board
@@ -850,7 +850,7 @@ static void ttt_cell_clicked(lv_event_t *e)
 
     if (ttt_mode == TTT_VS) {
         ttt_pick_default_peer();
-        if (ttt_peer < 0) { lv_label_set_text(ttt_status, "nobody in range"); return; }
+        if (ttt_peer < 0) { lv_label_set_text(ttt_status, espnow_nobody_text()); return; }
         /* ⚠️ Refuse a move out of turn rather than sending it and letting the
          * far end reject it. Two boards that disagree about whose turn it is
          * is the one state this design cannot repair itself out of. */
@@ -891,7 +891,7 @@ static void ttt_peer_clicked(lv_event_t *e)
 {
     (void)e;
     ttt_peer = play_next(ttt_peer);
-    if (ttt_peer < 0) lv_label_set_text(ttt_status, "nobody in range");
+    if (ttt_peer < 0) lv_label_set_text(ttt_status, espnow_nobody_text());
     ttt_set_role();          /* a different opponent can mean a different mark */
     ttt_paint();
     ttt_vs_status();
@@ -935,7 +935,10 @@ static void ttt_build(void)
     lv_obj_align(ttt_peer_btn, LV_ALIGN_TOP_RIGHT, -8, HDR_H + 34);
 
     ttt_status = lbl(scr_ttt, &lv_font_montserrat_12, C_MUTED, "");
-    lv_obj_align(ttt_status, LV_ALIGN_TOP_MID, 0, HDR_H + 38);
+    /* Same box as Connect 4's: left of the "vs:" button, never under it. */
+    lv_label_set_long_mode(ttt_status, LV_LABEL_LONG_DOT);
+    lv_obj_set_width(ttt_status, LCD_W - 124);
+    lv_obj_align(ttt_status, LV_ALIGN_TOP_LEFT, 8, HDR_H + 38);
 
     int x0 = (LCD_W - (3 * TTT_CELL + 2 * TTT_GAP)) / 2;
     int y0 = HDR_H + 58;
@@ -1254,11 +1257,13 @@ static void c4_status_set(void)
                                        : (c4_turn == 'R' ? "Your turn" : "thinking..."));
         return;
     }
-    if (c4_peer < 0) { lv_label_set_text(c4_status, "nobody in range"); return; }
+    if (c4_peer < 0) { lv_label_set_text(c4_status, espnow_nobody_text()); return; }
     const char *pn = espnow_peer_name(c4_peer);
-    lv_label_set_text_fmt(c4_status, "%s  -  %s vs %s",
-                          c4_turn == c4_me ? "Your turn" : "Their turn",
-                          c4_me == 'R' ? "red" : "yellow", pn ? pn : "?");
+    (void)pn;   /* the "vs:" box beside this line already names them */
+    if (c4_turn == c4_me)
+        lv_label_set_text_fmt(c4_status, "Your turn - %s", c4_me == 'R' ? "red" : "yellow");
+    else
+        lv_label_set_text(c4_status, "Their turn");
 }
 
 static void c4_broadcast(bool is_new)
@@ -1377,6 +1382,11 @@ static void c4_apply(const espnow_game_t *g)
     c4_me   = (espnow_my_id() == c4_starter) ? 'R' : 'Y';
     c4_turn = c4_turn_from_board(c4_b);
     c4_over = false;
+    /* 🚨 CLEAR THE LAST GAME'S BANNER HERE, NOT ONLY IN reset(). When the
+     * WINNER taps "play again" the new board arrives by radio, and the loser
+     * kept "<name> WINS" over the fresh board until leaving the screen
+     * (filmed 2026-10-09). A board that still has a winner re-raises it below. */
+    banner_set(&c4_banner, scr_c4, NULL, C_INK);
     c4_paint();
     char w = c4_winner(c4_b);
     if (w) { c4_next_starter(w); c4_finish(w); }
@@ -1419,7 +1429,7 @@ static void c4_col_clicked(lv_event_t *e)
 
     if (c4_mode == C4_VS) {
         c4_pick_default_peer();
-        if (c4_peer < 0) { lv_label_set_text(c4_status, "nobody in range"); return; }
+        if (c4_peer < 0) { lv_label_set_text(c4_status, espnow_nobody_text()); return; }
         c4_set_role();
         if (c4_turn != c4_me) { lv_label_set_text(c4_status, "not your turn"); return; }
         C4_AT(row, c) = c4_me;
@@ -1467,7 +1477,7 @@ static void c4_peer_clicked(lv_event_t *e)
 {
     (void)e;
     c4_peer = play_next(c4_peer);
-    if (c4_peer < 0) lv_label_set_text(c4_status, "nobody in range");
+    if (c4_peer < 0) lv_label_set_text(c4_status, espnow_nobody_text());
     c4_set_role();
     c4_paint();
     c4_status_set();
@@ -2395,7 +2405,7 @@ static void bs_status_set(void)
                               bs_hits(bs_shot[1]), BS_SHIP_CELLS);
         return;
     }
-    if (bs_peer < 0) { lv_label_set_text(bs_status, "nobody in range"); return; }
+    if (bs_peer < 0) { lv_label_set_text(bs_status, espnow_nobody_text()); return; }
     const char *pn = espnow_peer_name(bs_peer);
     lv_label_set_text_fmt(bs_status, "%s  -  hits %d/%d  vs %s",
                           t < 0        ? "waiting" :
@@ -2449,7 +2459,7 @@ static void bs_cell_clicked(lv_event_t *e)
     if (bs_over) { bs_reset(); return; }
     if (bs_mode == BS_VS) {
         bs_pick_default_peer();
-        if (bs_peer < 0) { lv_label_set_text(bs_status, "nobody in range"); return; }
+        if (bs_peer < 0) { lv_label_set_text(bs_status, espnow_nobody_text()); return; }
         /* The screen can be opened with nobody in range and a peer arrive
          * after. Without this the sides are whatever bs_reset() guessed with no
          * peer to compare ids against, and both handsets can believe they are
@@ -2501,7 +2511,7 @@ static void bs_peer_clicked(lv_event_t *e)
 {
     (void)e;
     bs_peer = play_next(bs_peer);
-    if (bs_peer < 0) lv_label_set_text(bs_status, "nobody in range");
+    if (bs_peer < 0) lv_label_set_text(bs_status, espnow_nobody_text());
     bs_set_role();
     bs_paint();
     bs_status_set();
@@ -3090,7 +3100,7 @@ static void hr_new_hand(void)
     }
 
     hr_pick_default_peer();
-    if (hr_peer < 0) { hr_status_set("nobody in range"); return; }
+    if (hr_peer < 0) { hr_status_set(espnow_nobody_text()); return; }
 
     uint16_t me = espnow_my_id(), them = espnow_peer_id(hr_peer);
     /* The deal alternates. Which half a player gets is the only thing `starter`
@@ -3143,7 +3153,7 @@ static void hr_status_set(const char *override)
                               hr_total[hr_my_slot()], hr_total[1 - hr_my_slot()]);
     if (override) { lv_label_set_text(hr_status, override); return; }
     if (hr_mode == HR_VS && hr_peer < 0) {
-        lv_label_set_text(hr_status, "nobody in range");
+        lv_label_set_text(hr_status, espnow_nobody_text());
         return;
     }
 
@@ -3266,7 +3276,7 @@ static void hr_card_clicked(lv_event_t *e)
     if (hr_over) { hr_new_hand(); return; }
     if (hr_mode == HR_VS) {
         hr_pick_default_peer();
-        if (hr_peer < 0) { hr_status_set("nobody in range"); return; }
+        if (hr_peer < 0) { hr_status_set(espnow_nobody_text()); return; }
         hr_set_role();
     }
 
@@ -3300,7 +3310,7 @@ static void hr_peer_clicked(lv_event_t *e)
 {
     (void)e;
     hr_peer = play_next(hr_peer);
-    if (hr_peer < 0) hr_status_set("nobody in range");
+    if (hr_peer < 0) hr_status_set(espnow_nobody_text());
     hr_set_role();
     hr_paint();
 }
@@ -4230,7 +4240,7 @@ static void uno_deal(void)
 {
     uno_build_roster();
     if (uno_np < 2) {
-        if (uno_status) lv_label_set_text(uno_status, "nobody in range - try Easy, or wait for a handset");
+        if (uno_status) lv_label_set_text_fmt(uno_status, "%s - try Easy, or wait for a handset", espnow_nobody_text());
         return;
     }
     uno_gen++;
@@ -4628,7 +4638,7 @@ static void uno_paint(void)
         lv_label_set_text_fmt(uno_score_lbl, "%d", uno_seat >= 0 ? uno_count(uno_seat) : 0);
 
     if (uno_status && !uno_over && uno_wild_pick < 0) {
-        if (uno_np < 2) lv_label_set_text(uno_status, "nobody in range - try Easy");
+        if (uno_np < 2) lv_label_set_text_fmt(uno_status, "%s - try Easy", espnow_nobody_text());
         else if (uno_seat < 0) lv_label_set_text(uno_status, "watching - you are not in this deal");
         else if (uno_turn == uno_seat)
             lv_label_set_text_fmt(uno_status, "your turn  -  %s", UNO_CN[uno_colr]);
@@ -5036,7 +5046,7 @@ static void ck_status_set(void)
                          : (ck_turn == 'r' ? "Your turn" : "thinking..."));
         return;
     }
-    if (ck_peer < 0) { lv_label_set_text(ck_status, "nobody in range"); return; }
+    if (ck_peer < 0) { lv_label_set_text(ck_status, espnow_nobody_text()); return; }
     const char *pn = espnow_peer_name(ck_peer);
     lv_label_set_text_fmt(ck_status, "%s  -  %s vs %s",
                           ck_turn == ck_me ? "Your turn" : "Their turn",
@@ -5169,6 +5179,7 @@ static void ck_apply(const espnow_game_t *g)
     ck_turn = (g->turn == 'w') ? 'w' : 'r';
     ck_sel = ck_chain = -1;
     ck_over = false;
+    banner_set(&ck_banner, scr_ck, NULL, C_INK);   /* see c4_apply() */
     ck_paint();
     char w = ck_winner(ck_b, ck_turn);
     if (!w && ck_still >= CK_STILL_MAX) w = 'D';
@@ -5242,7 +5253,7 @@ static void ck_sq_clicked(lv_event_t *e)
      * the player, which is the whole point of that mode. */
     if (ck_mode == CK_VS) {
         ck_pick_default_peer();
-        if (ck_peer < 0) { lv_label_set_text(ck_status, "nobody in range"); return; }
+        if (ck_peer < 0) { lv_label_set_text(ck_status, espnow_nobody_text()); return; }
         ck_set_role();
     }
     bool mine = (ck_mode == CK_VS) ? (ck_turn == ck_me)
@@ -5319,7 +5330,7 @@ static void ck_peer_clicked(lv_event_t *e)
 {
     (void)e;
     ck_peer = play_next(ck_peer);
-    if (ck_peer < 0) lv_label_set_text(ck_status, "nobody in range");
+    if (ck_peer < 0) lv_label_set_text(ck_status, espnow_nobody_text());
     ck_set_role();
     ck_paint();
     ck_status_set();

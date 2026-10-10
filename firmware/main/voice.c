@@ -43,6 +43,38 @@ static volatile bool s_want_stop;
 static voice_stage_t s_stage;
 static char s_heard[256];
 static char s_reply[512];
+
+/* 🔤 THE FONT IS ASCII (plus a few symbols), AND HA ANSWERS IN TYPOGRAPHY.
+ * "loud and clear — the living room LED is on" drew the dash as an empty box
+ * (filmed 2026-10-09). Fold the usual suspects to ASCII in place, and drop any
+ * other non-ASCII character (an emoji) rather than draw a box for it. Every
+ * replacement is no longer than what it replaces, so in place is safe. */
+static void ascii_fold(char *s)
+{
+    static const struct { const char *u, *a; } MAP[] = {
+        { "\xE2\x80\x94", "-" },  { "\xE2\x80\x93", "-" },   /* em, en dash */
+        { "\xE2\x80\x98", "'" },  { "\xE2\x80\x99", "'" },   /* curly single */
+        { "\xE2\x80\x9C", "\"" }, { "\xE2\x80\x9D", "\"" }, /* curly double */
+        { "\xE2\x80\xA6", "..." },{ "\xC2\xA0", " " },         /* ellipsis, nbsp */
+        { "\xC2\xB0", "\xC2\xB0" },                              /* degree: in the font */
+    };
+    char *w = s;
+    for (const char *r = s; *r; ) {
+        if ((unsigned char)*r < 0x80) { *w++ = *r++; continue; }
+        bool done = false;
+        for (size_t i = 0; i < sizeof MAP / sizeof MAP[0] && !done; i++) {
+            size_t n = strlen(MAP[i].u);
+            if (!strncmp(r, MAP[i].u, n)) {
+                for (const char *a = MAP[i].a; *a; ) *w++ = *a++;
+                r += n; done = true;
+            }
+        }
+        if (done) continue;
+        r++;                                        /* skip the lead byte... */
+        while (((unsigned char)*r & 0xC0) == 0x80) r++;   /* ...and its tail */
+    }
+    *w = 0;
+}
 static char s_note[96];   /* actionable hint shown on the talk screen */
 static bool s_was_playing;
 static int64_t s_press_ms;
@@ -211,6 +243,7 @@ static void do_talk(void)
         s_stage = VOICE_ERROR;
         goto done;
     }
+    ascii_fold(s_heard);
     applog("[talk] heard: %s", s_heard);
     audio_earcon(CUE_OK);          /* it understood you; the LLM takes a moment */
 
@@ -228,13 +261,13 @@ static void do_talk(void)
         s_stage = VOICE_ERROR;
         goto done;
     }
+    ascii_fold(s_reply);
     applog("[talk] reply: %s", s_reply);
 
-    /* --- 3. turn it into audio, while the radio is still up ---
-     * ⚠️ PHASE C IS NOT BUILT: the gateway does not relay TTS yet, so a
-     * COMM_LIGHT handset answers ON SCREEN and does not speak. Deliberately
-     * absent rather than quietly falling back to a direct HA call, which is the
-     * exact mistake that made phase A look finished. */
+    /* --- 3. the answer is shown, not spoken ---
+     * The gateway relays the answer as TEXT only, so the handset answers ON
+     * SCREEN. There is deliberately no direct call to Home Assistant here:
+     * the handset holds no credentials. */
     uint8_t *audio = NULL;
     size_t   audio_len = 0;
     if (held) { net_release(); held = false; }
@@ -245,8 +278,9 @@ static void do_talk(void)
         heap_caps_free(audio);
         s_stage = VOICE_IDLE;
     } else {
-        strlcpy(s_note, "Answered on screen - no voice (TTS)", sizeof(s_note));
-        s_stage = VOICE_ERROR;
+        /* Text-only by design: the gateway relays the answer, not its audio.
+         * An answer on screen is a success, not an error. */
+        s_stage = VOICE_IDLE;
     }
 
 done:

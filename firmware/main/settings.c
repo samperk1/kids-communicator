@@ -59,7 +59,7 @@ typedef struct {
      * can be TESTED AT HOME rather than first discovered in a car park. */
     int  wt_radio;
     int  wt_range;           /* 0 = normal 1Mbps, 1 = LR. See settings.h */
-    int  now_channel;        /* ESP-NOW channel; 0 means "never set" = 6 */
+    int  now_channel;        /* ESP-NOW channel; 0 means "never set" = 11 */
     int  calgen;
     touch_cal_t cal;
 } cfg_t;
@@ -293,12 +293,14 @@ void settings_set_name(const char *n)
     strlcpy(s_cfg.name, n ? n : "", sizeof(s_cfg.name));
     mark_dirty();
 }
-/* 0 in NVS means a config saved before this setting existed — treat it as the
- * old hard-coded 6 rather than an invalid channel. */
+/* 0 in NVS means "never set". A new handset starts on 11, NOT 6: 6 is the
+ * channel most home WiFi sits on, and ESP-NOW on a crowded channel loses
+ * frames. Filmed 2026-10-09: two new handsets side by side on 6 each said
+ * "nobody in range", and both worked the moment they moved to 11. */
 int  settings_espnow_channel(void)
 {
     int ch = s_cfg.now_channel;
-    return (ch == 1 || ch == 6 || ch == 11) ? ch : 6;
+    return (ch == 1 || ch == 6 || ch == 11) ? ch : 11;
 }
 void settings_set_espnow_channel(int ch)
 {

@@ -654,7 +654,7 @@ static void refresh_labels(void)
                                   (shots - SUDDEN_DEATH_SHOT + 1) * SUDDEN_DEATH_DMG);
         else if (shots >= SUDDEN_DEATH_SHOT - 5)
             lv_label_set_text_fmt(lbl_hint, "death in %d", SUDDEN_DEATH_SHOT - shots);
-        else if (tnk_mode == TNK_VS && tnk_peer < 0) lv_label_set_text(lbl_hint, "nobody in range");
+        else if (tnk_mode == TNK_VS && tnk_peer < 0) lv_label_set_text(lbl_hint, espnow_nobody_text());
         else lv_label_set_text(lbl_hint, "");
     }
 }
@@ -1578,7 +1578,7 @@ static void shop_chrome(void)
         const char *pn = (tnk_peer >= 0) ? espnow_peer_name(tnk_peer) : NULL;
         char t[40];
         if (tnk_mode == TNK_VS)
-            snprintf(t, sizeof t, "vs: %s", pn ? pn : "nobody in range");
+            snprintf(t, sizeof t, "vs: %s", pn ? pn : espnow_nobody_text());
         else if (tnk_ai())
             snprintf(t, sizeof t, "vs: the machine");
         else

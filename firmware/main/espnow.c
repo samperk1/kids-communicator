@@ -1517,6 +1517,13 @@ uint16_t espnow_peer_id(int i)
 }
 
 uint16_t espnow_my_id(void) { return s_id; }
+
+const char *espnow_nobody_text(void)
+{
+    static char t[24];
+    snprintf(t, sizeof t, "nobody on ch %d", ESPNOW_CHANNEL);
+    return t;
+}
 int8_t      espnow_peer_rssi(int i) { peer_t *p = peer_at(i); return p ? p->rssi : 0; }
 
 /* ------------------------------------------------------------------ voice */

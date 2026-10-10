@@ -2113,7 +2113,7 @@ static void wt_to_draw(void)
         lv_label_set_text(wt_to_lbl, LV_SYMBOL_RIGHT " Talk to: Everyone");
         lv_obj_set_style_text_color(wt_to_lbl, C_AMBER, 0);
     } else {
-        lv_label_set_text(wt_to_lbl, LV_SYMBOL_RIGHT " Talk to: nobody in range");
+        lv_label_set_text_fmt(wt_to_lbl, LV_SYMBOL_RIGHT " Talk to: %s", espnow_nobody_text());
         lv_obj_set_style_text_color(wt_to_lbl, C_MUTED, 0);
     }
 }
@@ -2266,8 +2266,10 @@ static void wt_refresh(void)
      * dead end and a signpost. Only shown when somebody is actually nearby —
      * with nobody in range, Text would not help either and the plain status is
      * the honest answer. */
+    /* The Talkie has run over ESP-NOW since, so in this build "needs wifi" is
+     * simply false - it sat over a working button on 2026-10-09's film. */
     if (wt_mode() == WT_OFF && nearby > 0)
-        lv_label_set_text(wt_stat, "voice needs wifi - use Text");
+        lv_label_set_text(wt_stat, "ready - hold to talk");
     else
         lv_label_set_text(wt_stat, wt_status());
 
@@ -2924,13 +2926,11 @@ static void wtrange_adjust(int d)
 
 /* 📻 WHICH CHANNEL ESP-NOW SITS ON. 1, 6 or 11 — the three non-overlapping
  * ones. 🚨 CHANGE ALL THE HANDSETS, not one: they cannot hear across channels.
- * A survey on 2026-08-26 found SIX access points on 6, all the builder's own mesh, and
- * nothing at all on 1 or 11. */
+ * If handsets that are side by side say "nobody on ch N", the channel is busy
+ * with WiFi where you are: move every handset to another one. */
 static void nowchan_label(char *o, size_t n)
 {
-    int ch = settings_espnow_channel();
-    snprintf(o, n, "Radio channel  %d%s", ch,
-             ch == 6 ? "  (busy here)" : "  (all handsets!)");
+    snprintf(o, n, "Radio channel  %d  (all handsets!)", settings_espnow_channel());
 }
 
 static void nowchan_adjust(int d)
@@ -3495,6 +3495,20 @@ static void menu_usbmsc_clicked(lv_event_t *e)
 
 /* ---- the table --------------------------------------------------------- */
 
+/* 🔧 DEVELOPER ROWS: instruments for chasing GPS, SD and speaker faults on the
+ * bench. They are not settings a family needs, and in the menu they read as
+ * an unfinished device. Hidden unless built with -DCOMM_DEV_MENU=ON; the
+ * functions stay compiled either way, so both builds see the same code. */
+#ifndef COMM_DEV_MENU
+#define COMM_DEV_MENU 0
+#endif
+static bool menu_is_dev(mi_label_fn label)
+{
+    return label == field_label || label == hush_label || label == sdlog_label ||
+           label == gpsdump_label || label == gpscold_label ||
+           label == monhw_label || label == gain_label;
+}
+
 static menu_item_t MENU[] = {
     /* Restart is second-from-top on purpose: it is what gets reached for when
      * the handset says "no wifi", and this list scrolls. */
@@ -3555,7 +3569,7 @@ static void menu_refresh_all(void)
 
 static void menu_select(int i)
 {
-    if (i < 0 || i >= MENU_N || !MENU[i].adjust) return;
+    if (i < 0 || i >= MENU_N || !MENU[i].adjust || !MENU[i].row) return;
     if (menu_sel >= 0 && MENU[menu_sel].row) {
         lv_obj_set_style_bg_color(MENU[menu_sel].row, C_PANEL, 0);
         lv_obj_set_style_border_width(MENU[menu_sel].row, 0, 0);
@@ -3633,6 +3647,7 @@ static void build_menu_screen(void)
 
     int y = 4;
     for (int i = 0; i < MENU_N; i++) {
+        if (!COMM_DEV_MENU && menu_is_dev(MENU[i].label)) continue;
         lv_obj_t *b = lv_btn_create(menu_list);
         flat(b);
         lv_obj_set_size(b, LCD_W - 16, MENU_ROW_H);
@@ -4872,103 +4887,6 @@ static char      cd_buf[FLEET_CODE_LEN + 1];
 
 static void fl_back_clicked(lv_event_t *e)  { (void)e; ui_show_menu(); }
 
-/* ⚠️ Mode-taking, so it must never be reachable by accident and must say what
- * it costs. Migration is what lets an encrypted handset still talk to one that
- * has not been flashed yet — useful for days, dangerous left on for ever.
- *
- * 🚨 THE COMMENT ABOVE SAID ALL THAT AND THE CODE DID NONE OF IT. This was a
- * plain button that flipped the fleet's downgrade path instantly, both ways,
- * with no confirmation and nothing to announce it but a colour change on a
- * screen nobody is looking at. A stray tap silently RE-OPENED cleartext for the
- * whole handset. Same shape as the stray serial byte that started a
- * calibration, and the same rule applies: a mode-taking action needs a
- * confirmation AND a self-recovery timeout.
- *
- * 🔑 THE TWO DIRECTIONS ARE NOT THE SAME RISK, so they are not treated the
- * same. CLOSING is the safe direction — it can only ever tighten things, and
- * making it hard would discourage the one action we actually want people to
- * take at the end of a migration. OPENING is the dangerous one, so that is the
- * side that has to be held for, and it says what it costs first. */
-#define MIG_ASK_TIMEOUT_MS  12000
-
-static lv_obj_t   *mig_ask_box;
-static lv_timer_t *mig_ask_timer;
-static int         mig_yes_ticks;
-
-static void mig_ask_close(void)
-{
-    if (mig_ask_timer) { lv_timer_del(mig_ask_timer); mig_ask_timer = NULL; }
-    if (mig_ask_box)   { lv_obj_del(mig_ask_box);     mig_ask_box   = NULL; }
-    mig_yes_ticks = 0;
-}
-/* A question raised by accident must go away by itself — a handset in a bag
- * taps itself, and the default has to be the safe answer. */
-static void mig_ask_timeout(lv_timer_t *t)
-{
-    (void)t;
-    mig_ask_timer = NULL;          /* one-shot: LVGL is deleting it itself */
-    applog("[fleet] migration question timed out - stayed closed");
-    mig_ask_close();
-}
-static void mig_ask_no(lv_event_t *e) { (void)e; mig_ask_close(); }
-static void mig_ask_yes(lv_event_t *e)
-{
-    (void)e;
-    if (++mig_yes_ticks < 9) return;          /* ~1.3s of holding */
-    mig_ask_close();
-    fleet_migration_set(true);
-    fleet_refresh();
-}
-static void mig_ask_yes_up(lv_event_t *e) { (void)e; mig_yes_ticks = 0; }
-
-static void mig_ask_open(void)
-{
-    mig_ask_close();
-    mig_yes_ticks = 0;
-    mig_ask_box = lv_obj_create(lv_layer_top());   /* over whatever asked */
-    lv_obj_set_size(mig_ask_box, LCD_W - 40, 160);
-    lv_obj_center(mig_ask_box);
-    lv_obj_set_style_bg_color(mig_ask_box, C_PANEL, 0);
-    lv_obj_set_style_border_color(mig_ask_box, C_AMBER, 0);
-    lv_obj_set_style_border_width(mig_ask_box, 2, 0);
-    lv_obj_clear_flag(mig_ask_box, LV_OBJ_FLAG_SCROLLABLE);
-
-    lv_obj_t *l = mk_label(mig_ask_box, &lv_font_montserrat_14, C_INK,
-                           "Allow unpaired\nhandsets to talk\nin the CLEAR?\n"
-                           "Hold Yes");
-    lv_obj_set_style_text_align(l, LV_TEXT_ALIGN_CENTER, 0);
-    lv_obj_align(l, LV_ALIGN_TOP_MID, 0, 4);
-
-    lv_obj_t *no = lv_btn_create(mig_ask_box);
-    lv_obj_set_size(no, 76, 40);
-    lv_obj_align(no, LV_ALIGN_BOTTOM_LEFT, 0, 0);
-    lv_obj_set_style_bg_color(no, C_LINE, 0);
-    lv_obj_add_event_cb(no, mig_ask_no, LV_EVENT_CLICKED, NULL);
-    lv_obj_center(mk_label(no, &lv_font_montserrat_14, C_INK, "No"));
-
-    lv_obj_t *yes = lv_btn_create(mig_ask_box);
-    lv_obj_set_size(yes, 76, 40);
-    lv_obj_align(yes, LV_ALIGN_BOTTOM_RIGHT, 0, 0);
-    lv_obj_set_style_bg_color(yes, C_AMBER, 0);
-    lv_obj_add_event_cb(yes, mig_ask_yes,    LV_EVENT_LONG_PRESSED_REPEAT, NULL);
-    lv_obj_add_event_cb(yes, mig_ask_yes_up, LV_EVENT_RELEASED, NULL);
-    lv_obj_center(mk_label(yes, &lv_font_montserrat_14, C_ONAMBER, "Yes"));
-
-    mig_ask_timer = lv_timer_create(mig_ask_timeout, MIG_ASK_TIMEOUT_MS, NULL);
-    lv_timer_set_repeat_count(mig_ask_timer, 1);
-}
-
-static void fl_migrate_clicked(lv_event_t *e)
-{
-    (void)e;
-    if (fleet_migration_open()) {
-        fleet_migration_set(false);      /* tightening: no ceremony required */
-        fleet_refresh();
-        return;
-    }
-    mig_ask_open();
-}
-
 static void cd_refresh(void)
 {
     char shown[FLEET_CODE_LEN + 1];
@@ -5068,7 +4986,7 @@ static void fleet_refresh(void)
         snprintf(line, sizeof(line), "%d paired - MIGRATION OPEN",
                  fleet_count());
     else
-        snprintf(line, sizeof(line), "%d paired - closed", fleet_count());
+        snprintf(line, sizeof(line), "%d paired", fleet_count());
     lv_label_set_text(fl_stat, line);
     lv_obj_set_style_text_color(fl_stat,
         !fleet_has_pmk()        ? C_MUTED :
@@ -5185,7 +5103,6 @@ static void build_fleet_screen(void)
     lv_obj_set_scrollbar_mode(fl_rows, LV_SCROLLBAR_MODE_AUTO);
 
     fl_button(scr_fleet, 68, 8,  C_BLUE,  "Code",    fl_code_clicked,    NULL);
-    fl_button(scr_fleet, 84, 82, C_AMBER, "Migrate", fl_migrate_clicked, NULL);
 
     lv_obj_t *back = lv_btn_create(scr_fleet);
     flat(back);
