@@ -66,6 +66,12 @@ error **"ESP-NOW is on the wrong channel"**.
 
 ## Setting it up
 
+You need your family's **fleet code**: the 8 digits you chose and typed into
+every handset. The handsets cannot show it to you; they keep only the key made
+from it. If nobody wrote it down, choose a new code, enter it on every handset
+(*Settings → Fleet*), pair the handsets with each other again, and use the new
+code here.
+
 1. **Secrets.** Open `/config/esphome/secrets.yaml` in Home Assistant (the
    ESPHome add-on's *Secrets* button). Add the lines from
    [`gateway/secrets.yaml.example`](../gateway/secrets.yaml.example) with your

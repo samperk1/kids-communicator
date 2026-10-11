@@ -102,6 +102,13 @@ Then:
 3. **Set up the family**: on each handset, *Settings → Fleet* takes the same
    8-digit fleet code, and *Settings → Radio channel* must match on all of
    them. Then pair them from the Fleet screen.
+
+   📝 **Write the fleet code down and keep it somewhere safe.** You choose it,
+   and the handsets never store it: they keep only the encryption key made from
+   it, so a lost handset cannot give it away. That also means it **cannot be
+   read back** from any handset. You will need it again to add a handset or a
+   gateway later. If it is lost, the only way out is a new code on every
+   handset and pairing them all again.
 4. *(Optional)* **Add a Home Assistant gateway** for Comms: see
    [`docs/GATEWAY.md`](docs/GATEWAY.md).
 
