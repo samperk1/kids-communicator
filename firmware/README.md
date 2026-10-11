@@ -21,6 +21,11 @@ idf.py -p /dev/ttyACM0 flash monitor
 The first build downloads LVGL 8.4 and the USB stack from the ESP component
 registry. There is nothing to configure and no secrets file to create.
 
+⚠️ **Tap the screen after plugging in.** A handset that went to sleep on
+battery does not wake when you plug it in: deep sleep switches USB off, and the
+board has no way to notice USB power arriving. If `/dev/ttyACM0` is missing,
+touch the screen. Once awake it never sleeps while connected to a computer.
+
 ⚠️ If you change `sdkconfig.defaults`, delete the generated `sdkconfig` before
 rebuilding. A stale `sdkconfig` silently wins over the defaults.
 

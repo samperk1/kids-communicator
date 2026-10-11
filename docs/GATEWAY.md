@@ -9,12 +9,12 @@ voice assistant. The answer comes back to the handset as text on its screen.
 > built for, but it is not yet reliable enough to hand to a child and walk
 > away. Known problems, being worked on:
 >
-> - Every failure shows the same **"lost audio"**, whether the gateway is out
->   of reach, the pairing has gone wrong, or Home Assistant's speech-to-text
->   failed. The handset cannot yet tell you which.
 > - A pairing between a handset and the gateway can end up **broken while
->   both still show "paired"**. The fix today needs a computer (see *When it
->   does not work*, below). An automatic repair is planned.
+>   both still show "paired"**. You can fix one handset from Home Assistant
+>   (see *When it does not work*, below); an automatic repair is planned.
+> - "Helper is busy - try later" covers several causes (gateway off, gateway
+>   cannot reach Home Assistant, the recording was lost on the way). The
+>   gateway's log says which.
 > - The gateway does not yet tell handsets whether it can reach Home
 >   Assistant, so a handset may pick a gateway that cannot answer.
 > - Home Assistant may show the gateway stuck on **"Responding"** after an
@@ -114,6 +114,29 @@ give each its own file, name and API key. Handsets use the strongest gateway
 that can reach Home Assistant. *Settings → Ask via* shows which one, and can
 pin a particular one.
 
+**Two gateways help each other out.** If the first is busy with another
+handset's question, or cannot reach Home Assistant, the handset sends the
+question to the other one instead. If every gateway is busy, the handset shows
+*Waiting for helper...* and asks again by itself for up to 45 seconds (*Back*
+stops waiting). A handset must be paired with a gateway to use it. It never
+re-sends a question that already reached a gateway in full, because Home
+Assistant may already have acted on it, and "toggle the lights" sent twice
+undoes itself.
+
+**Which handsets are paired.** The gateway's device page in Home Assistant
+lists *Handset 1* to *Handset 8*: each handset's name, or `empty`. Next to each
+is a **Forget handset** button (under *Configuration*).
+
+### What the handset says
+
+| On screen | Meaning |
+|---|---|
+| Waiting for helper... | Every gateway is busy. It will ask again by itself. |
+| Helper is busy - try later | No gateway could take the question: off, cannot reach Home Assistant, or the recording was lost on the way. |
+| Helper didn't understand | Home Assistant got the question and turned it down. |
+| Didn't hear you - try again | Home Assistant heard no words in the recording. |
+| No helper nearby | No gateway in range, or it is on a different channel. |
+
 ## When it does not work
 
 | What you see | What it usually is |
@@ -121,9 +144,9 @@ pin a particular one.
 | The gateway is not in the handset's Fleet list | Wrong channel. See above. |
 | Home Assistant: "ESP-NOW is on the wrong channel" | The router moved the gateway. Pin the router's channel, or change the handsets to match. |
 | Home Assistant: "Invalid encryption key" | Home Assistant reused an **older device entry** for the same board, with an old key. Delete the device in Home Assistant and add it again. |
-| Both ends say paired, but every question fails | The two ends hold **different keys**. Erase the gateway's pairings (ESPHome: install with the board on USB and choose to erase, or `esptool.py erase_region 0x390000 0x70000`), then on each handset remove the gateway, restart, and pair again with **one** tap. |
-| Pairing gets no answer | One end still remembers an old pairing. On the handset, tap the gateway in *Fleet* to **remove** it, restart both, and pair again. |
-| "Lost audio" on some questions, answers on others | Look at Home Assistant's voice pipeline debug (*Settings → Voice assistants → ⋯ → Debug*). If the question shows up there, the radio part worked and the speech-to-text step failed. Try another speech-to-text engine. |
+| Both ends say paired, but every question from one handset fails | The two ends hold **different keys**. On the gateway's page in Home Assistant press **Forget handset** for that handset only, then on that handset remove the gateway in *Fleet* (tap it twice) and pair again with **one** tap. The other handsets are not affected. |
+| Pairing gets no answer | One end still remembers an old pairing. Press **Forget handset** for it in Home Assistant, remove the gateway on the handset (tap it twice in *Fleet*), and pair again. |
+| "Helper is busy - try later" on some questions, answers on others | Look at Home Assistant's voice pipeline debug (*Settings → Voice assistants → ⋯ → Debug*). If the question shows up there, the radio part worked and the speech-to-text step failed. Try another speech-to-text engine. |
 
 🚨 **Erasing the gateway wipes its pairings.** Reinstalling it from scratch,
 or moving it to a new board, means every handset must *remove* it from Fleet
