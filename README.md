@@ -102,7 +102,7 @@ read the note there before regenerating the STLs from the FreeCAD source.
 | Map | 🧪 Experimental |
 | Predictive text | ✅ Filtered for children; names are spelled once and remembered per handset |
 | Home Assistant gateway | ✅ ESPHome config in `gateway/`, guide in `docs/GATEWAY.md`. Two running at home |
-| Parts list | ✅ Every part with a photo and a link; fasteners still to list |
+| Parts list | ✅ Every part with a photo and a link |
 | Licence | ✅ GPL-3.0, see `LICENSE`, with third-party credits in `NOTICE.md` |
 
 ### Radio security: what is protected and what is not
