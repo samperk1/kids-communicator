@@ -28,7 +28,7 @@ Notes that will save you money:
 | | microSD card | Any reasonable size | Music and map tiles |
 | <img src="../images/parts/gps.jpg" width="140" alt="The ATGM336H GPS module and antenna"> | GPS *(optional)* | [ATGM336H GPS + BDS module](https://www.amazon.com/dp/B0GVYQ8ZV2) with its ceramic patch antenna | UART. Only needed for the map and the clock. The antenna is separate, on a small IPEX/U.FL lead |
 | <img src="../images/parts/headphone-dac.jpg" width="140" alt="The PCM5102A headphone board"> | Headphone board *(optional)* | [ACEIRMC PCM5102A I2S DAC module](https://www.amazon.com/dp/B08YNJGSN4) (3-pack), 3.5 mm jack | For wired headphones. The built-in speaker keeps working; headphones are for music |
-| | Screws | [uxcell M3 × 6 mm flat-head hex socket screws, 304 stainless](https://www.amazon.com/dp/B07WCT7SX7) (80-pack) | M3 × 6 mm, flat (countersunk) head. These are what was on hand and they work; any M3 × 6 flat-head should do |
+| | Screws | [uxcell M3 × 6 mm flat-head hex socket screws, 304 stainless](https://www.amazon.com/dp/B07WCT7SX7) (80-pack) | **4 per handset**, to mount the board. They thread straight into the printed ASA, with no inserts. These are what was on hand and they work; any M3 × 6 flat-head should do. Heat-set brass inserts would hold better: see the note in [`case/README.md`](../case/README.md) |
 
 ## The Home Assistant gateway *(optional)*
 

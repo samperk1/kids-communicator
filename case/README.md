@@ -18,6 +18,18 @@ as **one combined mesh** (119 × 56 × 27 mm). It is published as-is so the newe
 shape is available; the three separate printable parts and the FreeCAD source
 above are the earlier revision and have not yet been re-exported from it.
 
+## Screws, and an open problem
+
+The board is held by **4 × M3 × 6 mm flat-head screws** threaded straight into
+the printed holes. In ASA that holds well enough for daily use.
+
+**Heat-set brass inserts** (the kind you melt into a hole with a soldering
+iron) would be stronger and survive the board being taken out more often. A
+version with larger holes for inserts was tried. It was hard to melt the
+inserts in straight enough for all four to line up with the board's mounting
+holes. **If you solve that** (a jig, a different hole size, or a better insert
+for 3D prints), a pull request or an issue would be very welcome.
+
 ## Source
 
 `source/kids-communicator-case.FCStd` — FreeCAD 1.0. Modify it freely; that is
