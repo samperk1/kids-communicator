@@ -974,6 +974,28 @@ bool espnow_unpair(uint16_t id)
 
         fleet_remove(mac);          /* the stored key */
         esp_now_del_peer(mac);      /* the RAM peer that does the dropping */
+
+        /* 🚨 AND PUT THE PLAIN PEER STRAIGHT BACK, OR PAIRING AGAIN NEEDS A REBOOT.
+         * The driver only gains a peer in peer_add(), when a NEW s_peers entry
+         * is made. Deleting the encrypted peer left the s_peers entry in place
+         * (it is still beaconing) with NO driver peer behind it, so the next
+         * pair offer failed in esp_now_send() — "not found" — until the 8s
+         * stale reap made a fresh entry. A gateway beacons constantly and is
+         * never reaped. The builder, 2026-10-11: forgot Kay on the gateway,
+         * removed it on Kay, re-pair "didn't take" until Kay was rebooted. */
+        for (int j = 0; j < 8; j++) {
+            if (!s_peers[j].used || memcmp(s_peers[j].mac, mac, 6)) continue;
+            esp_now_peer_info_t pi = { 0 };
+            memcpy(pi.peer_addr, mac, 6);
+            pi.channel = 0;
+            pi.encrypt = false;
+            esp_err_t ae = esp_now_add_peer(&pi);
+            if (ae != ESP_OK)
+                applog("[now] re-add %04X in the clear FAILED: %s",
+                       (unsigned)id, esp_err_to_name(ae));
+            peer_set_rate(mac);
+            break;
+        }
         applog("[now] unpaired %s (%04X) - roster entry and encrypted peer both gone",
                name, (unsigned)id);
         return true;
