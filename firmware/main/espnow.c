@@ -250,10 +250,12 @@ void espnow_gw_on_response(void (*cb)(uint16_t, const uint8_t *, int))
  * A PIN wins over both, because the person holding it may know something the
  * radio does not. It is ignored when that gateway is not in range, so pinning
  * one and walking away from it does not disable the feature. */
-uint16_t espnow_gateway_id(void)
+uint16_t espnow_gateway_id(void) { return espnow_gateway_id_except(0); }
+
+uint16_t espnow_gateway_id_except(uint16_t skip)
 {
     uint16_t pin = settings_ask_gw_id();
-    if (pin) {
+    if (pin && pin != skip) {
         for (int i = 0; i < 8; i++)
             if (s_peers[i].used && s_peers[i].is_gateway && s_peers[i].id == pin)
                 return pin;
@@ -265,6 +267,7 @@ uint16_t espnow_gateway_id(void)
 
     for (int i = 0; i < 8; i++) {
         if (!s_peers[i].used || !s_peers[i].is_gateway) continue;
+        if (skip && s_peers[i].id == skip) continue;
         int  r  = s_peers[i].rssi ? s_peers[i].rssi : -127;
         bool ha = s_peers[i].ha_ok;
         if (!best_id || (ha && !best_ha) || (ha == best_ha && r > best_rssi)) {

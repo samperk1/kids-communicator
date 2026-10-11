@@ -282,6 +282,9 @@ bool     espnow_gateway_ha_ok(uint16_t id);
 /* 0 if none is in range. Ask each time rather than caching: which gateway is
  * reachable can change, and there may be more than one later. */
 uint16_t espnow_gateway_id(void);
+/* The best gateway in range OTHER than `skip` (the pin is ignored when it IS
+ * `skip`), or 0 if there is no other. For falling back when one is busy. */
+uint16_t espnow_gateway_id_except(uint16_t skip);
 bool     espnow_peer_is_gateway(int i);
 
 /* ------------------------------------------------------------------ *

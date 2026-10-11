@@ -39,6 +39,15 @@
 int ask_run(const uint8_t *wav, size_t len, uint16_t rate,
             char *heard, size_t heard_n, char *reply, size_t reply_n);
 
+/* The same, to a NAMED gateway — for falling back to a second one. */
+int ask_run_to(uint16_t gw, const uint8_t *wav, size_t len, uint16_t rate,
+               char *heard, size_t heard_n, char *reply, size_t reply_n);
+
+/* True once the last ask's recording had fully reached its gateway. After that
+ * point HA may already have ACTED on the question ("toggle the lights"), so a
+ * failure is not safe to resend to another gateway — it could run twice. */
+bool ask_last_uploaded(void);
+
 /* Fed from the ESP-NOW gateway-response callback. Runs on the RX task, so it
  * only ever records state — never blocks, never sends. */
 void ask_on_response(uint16_t from_id, const uint8_t *p, int len);

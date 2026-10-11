@@ -238,8 +238,23 @@ static void do_talk(void)
         int64_t wait_from = esp_timer_get_time();
         s_cancel_wait = false;
         while (1) {
-            r = ask_run(mic_wav(), mic_wav_len(), MIC_RATE,
-                        s_heard, sizeof(s_heard), s_reply, sizeof(s_reply));
+            uint16_t gw = espnow_gateway_id();
+            r = ask_run_to(gw, mic_wav(), mic_wav_len(), MIC_RATE,
+                           s_heard, sizeof(s_heard), s_reply, sizeof(s_reply));
+            /* 🔑 A SECOND GATEWAY IS A SECOND HELPER. If this one is busy, can't
+             * reach HA, or lost the recording before it had all of it, try the
+             * next best one in range before waiting. Both talk to the same HA,
+             * so "didn't understand" or "heard nothing" would only repeat.
+             * 🚨 NEVER after the whole recording arrived: HA may already have
+             * acted on it, and "toggle the lights" sent twice undoes itself. */
+            uint16_t alt;
+            if ((r == ASK_ERR_BUSY || r == ASK_ERR_NET || r == ASK_ERR_GAP) &&
+                !ask_last_uploaded() && !s_cancel_wait &&
+                (alt = espnow_gateway_id_except(gw)) != 0) {
+                applog("[talk] gateway %04X err %d - trying %04X", gw, r, alt);
+                r = ask_run_to(alt, mic_wav(), mic_wav_len(), MIC_RATE,
+                               s_heard, sizeof(s_heard), s_reply, sizeof(s_reply));
+            }
             if (r != ASK_ERR_BUSY || s_cancel_wait ||
                 esp_timer_get_time() - wait_from > WAIT_IN_LINE_MS * 1000LL)
                 break;

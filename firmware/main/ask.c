@@ -48,6 +48,9 @@ static volatile bool     s_reply_last;
 
 bool ask_busy(void) { return s_busy; }
 
+static volatile bool s_uploaded;
+bool ask_last_uploaded(void) { return s_uploaded; }
+
 /* ------------------------------------------------------------------ *
  * the receive half — runs on the ESP-NOW RX task
  *
@@ -116,10 +119,17 @@ void ask_on_response(uint16_t from_id, const uint8_t *p, int len)
 int ask_run(const uint8_t *wav, size_t len, uint16_t rate,
             char *heard, size_t heard_n, char *reply, size_t reply_n)
 {
+    return ask_run_to(espnow_gateway_id(), wav, len, rate,
+                      heard, heard_n, reply, reply_n);
+}
+
+int ask_run_to(uint16_t gw, const uint8_t *wav, size_t len, uint16_t rate,
+               char *heard, size_t heard_n, char *reply, size_t reply_n)
+{
+    s_uploaded = false;
     if (heard && heard_n) heard[0] = 0;
     if (!wav || !len) return ASK_ERR_GAP;
 
-    uint16_t gw = espnow_gateway_id();
     if (!gw) {
         applog("[ask] no gateway in range");
         return ASK_ERR_NET;
@@ -211,6 +221,10 @@ int ask_run(const uint8_t *wav, size_t len, uint16_t rate,
     }
 
     /* ---- the answer ---- */
+    /* Every chunk acked: the gateway has the whole question, and from here a
+     * failure must not be resent elsewhere. A gateway that ended early (BUSY,
+     * no HA) never acked them all, so that case stays safe to resend. */
+    s_uploaded = (s_acked >= chunks);
     if (!s_done) applog("[ask] uploaded, waiting for HA");
     const int64_t tw = esp_timer_get_time();
     while (!s_done) {
