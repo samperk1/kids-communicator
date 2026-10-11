@@ -4,6 +4,9 @@ A handheld communicator for kids. Two or more of them talk to each other
 directly over the air — **no wifi, no internet, no account, no server, and no
 subscription.** Turn two on anywhere and they find each other.
 
+**Build one:** [🛒 Parts list](docs/HARDWARE.md) · [🖨️ Case](case/README.md) ·
+[💾 Firmware](firmware/README.md) · [🏠 Home Assistant gateway (optional)](docs/GATEWAY.md)
+
 ## See it working
 
 Two handsets, recorded straight from their own screens: first-time setup,
@@ -76,14 +79,31 @@ A handset that leaves the house just stops being able to ask. See
 > on the family's handsets, minus the WiFi and smart-home parts. Start with
 > [`firmware/README.md`](firmware/README.md).
 
-## Hardware
+## Build one
 
-One board does almost everything: an **ESP32-S3 with a 2.8" touchscreen**
-(sold as the ES3C28P, and by Hosyond and LCDwiki among others), plus a speaker,
-a microphone, a battery and a microSD card.
+You need the parts below, a 3D printer and a USB cable. Several parts come in
+multi-packs, so a second handset costs much less than the first.
 
-Full parts list with pictures and where we bought each part:
-[`docs/HARDWARE.md`](docs/HARDWARE.md).
+| Part | |
+|---|---|
+| **ESP32-S3 board with a 2.8" touchscreen** (Hosyond / ES3C28P) | Does almost everything: screen, touch, mic, audio, microSD |
+| Speaker, LiPo battery, microSD card | |
+| 4 × M3 × 6 mm screws | |
+| GPS module *(optional)* | For the map and the clock |
+| Headphone board *(optional)* | For wired headphones |
+
+👉 **[The full parts list](docs/HARDWARE.md)** has a photo of each part, a
+link to where we bought it, and what to match if that link has gone.
+
+Then:
+
+1. **Print the case**: three parts, see [`case/README.md`](case/README.md).
+2. **Flash the firmware**: see [`firmware/README.md`](firmware/README.md).
+3. **Set up the family**: on each handset, *Settings → Fleet* takes the same
+   8-digit fleet code, and *Settings → Radio channel* must match on all of
+   them. Then pair them from the Fleet screen.
+4. *(Optional)* **Add a Home Assistant gateway** for Comms: see
+   [`docs/GATEWAY.md`](docs/GATEWAY.md).
 
 ## The case
 
