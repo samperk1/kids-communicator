@@ -41,6 +41,13 @@ firmware/dependencies.lock
 # sdkconfig.defaults IS tracked. The generated sdkconfig is NOT: a stale one
 # silently wins over the defaults and costs hours. Learned the hard way.
 
+# ─── ESPHOME GATEWAY BUILD OUTPUT ───────────────────────────────────────────
+# A built gateway image CONTAINS the WiFi password from secrets.yaml. Never
+# commit one, and never put one where Home Assistant serves /local/.
+gateway/.esphome/
+**/*.bin
+**/__pycache__/
+
 # ─── CAD ────────────────────────────────────────────────────────────────────
 # FreeCAD backups only. The .FCStd source and the exported STLs ARE tracked.
 *.FCBak

@@ -28,6 +28,16 @@ Notes that will save you money:
 | Headphone board *(optional)* | ⏳ PCM5102A I2S DAC with a 3.5 mm jack, for wired headphones |
 | Fasteners | ⏳ |
 
+## The Home Assistant gateway *(optional)*
+
+Only needed for Comms. See [`GATEWAY.md`](GATEWAY.md).
+
+| Part | Notes |
+|---|---|
+| ESP32 board | Any **original** ESP32 with 4 MB flash, e.g. an "ESP32 DevKit" / ESP32-WROOM-32 board. Not an S3, C3 or C6. No PSRAM needed |
+| USB cable + charger | It stays plugged in at home |
+| *(alternative, untested)* Ethernet ESP32 | WT32-ETH01 or Olimex ESP32-POE: frees the radio from the WiFi router's channel |
+
 ## Printed parts
 
 Three, in `../case/stl/`. See `../case/README.md`.

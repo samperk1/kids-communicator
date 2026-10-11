@@ -1,0 +1,113 @@
+# The kids-communicator Home Assistant gateway — the part every gateway shares.
+#
+# You do not flash this file directly. Copy example-gateway.yaml into your
+# ESPHome folder, give it a name, and it pulls this file in as a package.
+# See docs/GATEWAY.md for the whole setup.
+#
+# 🔑 WHY A GATEWAY AT ALL. The handsets have no WiFi and hold no credentials.
+# A gateway is a cheap ESP32 that stays at home: it hears the handsets over
+# ESP-NOW and talks to Home Assistant over the ESPHome native API. The WiFi
+# password and the API key live here, on a board that never leaves the house,
+# and this file carries none of them — only !secret references.
+#
+# A board's own file must set, in substitutions:
+#   device_name     ESPHome node name, e.g. communicator-gateway
+#   friendly_name   what Home Assistant shows
+#   board           PlatformIO board id; any original ESP32 (not an S3, C3 or
+#                   C6) with 4 MB of flash. esp32dev fits most boards.
+# and may override:
+#   fleet_channel   the ESP-NOW channel your handsets use (default 11)
+# and must provide its own `api:` block, so each gateway has its own key.
+
+substitutions:
+  # 🚨 THREE THINGS MUST AGREE: this number, the channel set on every handset,
+  # and the channel your WiFi router is on. A gateway on WiFi cannot choose
+  # its channel — the router does — and handsets on a different one cannot
+  # hear it at all. If they disagree, Home Assistant shows this device with
+  # the error "ESP-NOW is on the wrong channel". Pin the router to one channel
+  # (20 MHz, not auto) so it cannot wander off later.
+  fleet_channel: "11"
+
+esphome:
+  name: ${device_name}
+  friendly_name: ${friendly_name}
+
+esp32:
+  board: ${board}
+  framework:
+    type: esp-idf
+    sdkconfig_options:
+      # ESPHome builds ESP-IDF at log level ERROR, which compiles out every
+      # line the radio code writes — pairing, asks, "who is in range". Without
+      # this, the gateway's half of a failed pairing is invisible.
+      CONFIG_LOG_DEFAULT_LEVEL_INFO: y
+
+# The radio code. The handsets' own espnow.c and fleet.c are compiled here
+# too, so the gateway and the handsets cannot drift apart: one implementation
+# of the encryption and the pairing, not two.
+external_components:
+  - source:
+      type: git
+      url: https://github.com/samperk1/kids-communicator
+      ref: main
+      path: gateway/components
+    components: [comm_radio]
+
+logger:
+  level: DEBUG
+
+ota:
+  - platform: esphome
+    password: !secret ota_password
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  # 🚨 NOT OPTIONAL. ESPHome's ESP32 default is `light`, which sleeps the
+  # radio between WiFi beacons — and ESP-NOW frames that arrive while it
+  # sleeps are dropped in hardware, with no error anywhere. A gateway runs
+  # on a USB charger; the extra draw does not matter.
+  power_save_mode: none
+  # If the router is unreachable, the gateway puts up its own hotspot so you
+  # can give it new WiFi details.
+  ap:
+    ssid: ${device_name}-setup
+
+captive_portal:
+
+comm_radio:
+  id: fleet_radio
+  channel: ${fleet_channel}
+  name: Gateway
+  # 🚨 The same 8-digit fleet code typed into every handset. Without it the
+  # gateway hears the handsets but can never pair with them.
+  fleet_code: !secret comm_fleet_code
+  voice_assistant_id: fleet_voice
+  self_test: false
+
+# The handsets' recorded question, presented to ESPHome as a microphone. The
+# handsets record 16 kHz / 16-bit / mono, which is exactly what Home
+# Assistant's voice pipeline wants, so nothing on this path resamples.
+microphone:
+  - platform: comm_radio
+    id: fleet_mic
+    # ⚠️ No on_data: logger here. A 12-second question is ~2,000 chunks, and a
+    # log line each would be slower than the radio delivering them.
+
+# The question goes to Home Assistant's voice pipeline over the native API.
+voice_assistant:
+  id: fleet_voice
+  microphone:
+    microphone: fleet_mic
+  # 🔑 NO SPEAKER AND NO WAKE WORD, BOTH DELIBERATE. The audio is already
+  # recorded and already addressed to this gateway, and the answer goes back
+  # to the handset as TEXT, by design.
+  on_stt_end:
+    - lambda: 'id(fleet_radio)->ask_heard(x);'
+  on_tts_start:
+    - lambda: 'id(fleet_radio)->ask_replied(x);'
+  on_end:
+    - lambda: 'id(fleet_radio)->ask_finished();'
+  on_error:
+    # The trigger names these `code` and `message`, not x/y.
+    - lambda: 'id(fleet_radio)->ask_failed(code, message);'

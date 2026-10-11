@@ -17,7 +17,7 @@ pairing, music, Connect 4 played between the two, the talkie, and Solitaire.
 </table>
 
 *Comms (asking questions out loud) at the end of the Kid 1 video uses the
-optional home gateway, which is not in this repo yet.*
+optional [home gateway](docs/GATEWAY.md).*
 
 Built by a dad for his four kids, who have been carrying them daily since
 August 2026.
@@ -58,9 +58,19 @@ no access point to join, so:
 - **it works anywhere** — a campsite, a car, a school playground. Nothing to set
   up when you get there.
 
-The cost is honest: no internet radio, no over-the-air updates and no smart-home
-integration (the clock comes from GPS, when the handset has one). For a device handed to a child, that trade is
-worth it.
+The cost is honest: no internet radio and no over-the-air updates (the clock
+comes from GPS, when the handset has one). For a device handed to a child, that
+trade is worth it.
+
+### Home Assistant, without putting your password in a child's pocket
+
+If you run [Home Assistant](https://www.home-assistant.io/), an optional
+**gateway** adds **Comms**: press, ask a question out loud, read the answer on
+screen. The gateway is a cheap ESP32 that stays at home, plugged in. It holds
+the WiFi password and the Home Assistant key, so the handsets still hold none.
+A handset that leaves the house just stops being able to ask. See
+[`docs/GATEWAY.md`](docs/GATEWAY.md); the ESPHome config is in
+[`gateway/`](gateway/).
 
 > **Status: buildable.** The firmware in `firmware/` is the same code that runs
 > on the family's handsets, minus the WiFi and smart-home parts. Start with
@@ -91,6 +101,7 @@ read the note there before regenerating the STLs from the FreeCAD source.
 | Case FreeCAD source | ✅ Included, vendor board model removed |
 | Map | 🧪 Experimental |
 | Predictive text | ✅ Filtered for children; names are spelled once and remembered per handset |
+| Home Assistant gateway | ✅ ESPHome config in `gateway/`, guide in `docs/GATEWAY.md`. Two running at home |
 | Parts list | ⏳ Photographs being taken |
 | Licence | ✅ GPL-3.0, see `LICENSE`, with third-party credits in `NOTICE.md` |
 

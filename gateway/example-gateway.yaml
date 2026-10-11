@@ -1,0 +1,23 @@
+# One gateway. Copy this file into your ESPHome config folder (in Home
+# Assistant: /config/esphome/), rename it, and change the name below. It
+# contains no secrets; those go in secrets.yaml (see secrets.yaml.example).
+#
+# More than one gateway in the house? Make one of these per board, each with
+# its own device_name and its own api key. Handsets pick the strongest
+# gateway that can reach Home Assistant; nothing on a handset names one.
+
+substitutions:
+  device_name: communicator-gateway
+  friendly_name: Communicator Gateway
+  board: esp32dev
+  # Uncomment to match handsets that are not on channel 11 — see the note
+  # on fleet_channel in gateway.yaml. It must also be your router's channel.
+  # fleet_channel: "6"
+
+packages:
+  gateway: github://samperk1/kids-communicator/gateway/gateway.yaml@main
+
+api:
+  encryption:
+    # Each gateway its own key, so a leaked key exposes one board.
+    key: !secret gateway_api_key
