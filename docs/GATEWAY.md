@@ -5,6 +5,21 @@ anyway: a cheap ESP32 that stays at home, listens to the handsets over the same
 radio they use to talk to each other, and passes questions to Home Assistant's
 voice assistant. The answer comes back to the handset as text on its screen.
 
+> 🧪 **Experimental.** Comms works, and is used daily in the family it was
+> built for, but it is not yet reliable enough to hand to a child and walk
+> away. Known problems, being worked on:
+>
+> - Every failure shows the same **"lost audio"**, whether the gateway is out
+>   of reach, the pairing has gone wrong, or Home Assistant's speech-to-text
+>   failed. The handset cannot yet tell you which.
+> - A pairing between a handset and the gateway can end up **broken while
+>   both still show "paired"**. The fix today needs a computer (see *When it
+>   does not work*, below). An automatic repair is planned.
+> - The gateway does not yet tell handsets whether it can reach Home
+>   Assistant, so a handset may pick a gateway that cannot answer.
+> - Home Assistant may show the gateway stuck on **"Responding"** after an
+>   answer. That is cosmetic; the next question still works.
+
 **You do not need one.** Texting, the walkie-talkie, games and music all work
 without it. A gateway adds **Comms**: press, ask a question out loud, read the
 answer.
@@ -106,6 +121,7 @@ pin a particular one.
 | The gateway is not in the handset's Fleet list | Wrong channel. See above. |
 | Home Assistant: "ESP-NOW is on the wrong channel" | The router moved the gateway. Pin the router's channel, or change the handsets to match. |
 | Home Assistant: "Invalid encryption key" | Home Assistant reused an **older device entry** for the same board, with an old key. Delete the device in Home Assistant and add it again. |
+| Both ends say paired, but every question fails | The two ends hold **different keys**. Erase the gateway's pairings (ESPHome: install with the board on USB and choose to erase, or `esptool.py erase_region 0x390000 0x70000`), then on each handset remove the gateway, restart, and pair again with **one** tap. |
 | Pairing gets no answer | One end still remembers an old pairing. On the handset, tap the gateway in *Fleet* to **remove** it, restart both, and pair again. |
 | "Lost audio" on some questions, answers on others | Look at Home Assistant's voice pipeline debug (*Settings → Voice assistants → ⋯ → Debug*). If the question shows up there, the radio part worked and the speech-to-text step failed. Try another speech-to-text engine. |
 
