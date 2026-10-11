@@ -82,8 +82,8 @@ One board does almost everything: an **ESP32-S3 with a 2.8" touchscreen**
 (sold as the ES3C28P, and by Hosyond and LCDwiki among others), plus a speaker,
 a microphone, a battery and a microSD card.
 
-Full parts list with pictures and part numbers: `docs/HARDWARE.md` *(in
-progress)*.
+Full parts list with pictures and where we bought each part:
+[`docs/HARDWARE.md`](docs/HARDWARE.md).
 
 ## The case
 
@@ -102,7 +102,7 @@ read the note there before regenerating the STLs from the FreeCAD source.
 | Map | 🧪 Experimental |
 | Predictive text | ✅ Filtered for children; names are spelled once and remembered per handset |
 | Home Assistant gateway | ✅ ESPHome config in `gateway/`, guide in `docs/GATEWAY.md`. Two running at home |
-| Parts list | ⏳ Photographs being taken |
+| Parts list | ✅ Every part with a photo and a link; fasteners still to list |
 | Licence | ✅ GPL-3.0, see `LICENSE`, with third-party credits in `NOTICE.md` |
 
 ### Radio security: what is protected and what is not

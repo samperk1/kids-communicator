@@ -49,3 +49,11 @@ DejaVu font are copied in, unmodified apart from the font conversion.
 The ES3C28P display board (ESP32-S3, 2.8" IPS, capacitive touch) is a
 commercial product and is not part of this repository. No vendor CAD, schematic
 or firmware is included.
+
+## Part photos
+
+The images in `images/parts/` are the sellers' own product photos from the
+listings linked in `docs/HARDWARE.md`, included only so a builder can recognise
+each part. They remain the property of those sellers and are **not** licensed
+under this repository's GPL-3.0. Do not reuse them on that basis. A seller who
+would like one removed can open an issue and it will be replaced.
