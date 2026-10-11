@@ -1552,7 +1552,9 @@ static lv_obj_t *talk_title, *talk_batt, *talk_btn, *talk_btn_lbl,
 
 static void talk_pressed(lv_event_t *e)  { voice_press(); }
 static void talk_released(lv_event_t *e) { voice_release(); }
-static void talk_back_clicked(lv_event_t *e) { ui_show_home(); }
+/* Leaving the screen also stops waiting in line for a busy gateway — a kid
+ * who gave up should not get an answer popping up somewhere else later. */
+static void talk_back_clicked(lv_event_t *e) { voice_cancel_wait(); ui_show_home(); }
 
 static void build_talk_screen(void)
 {
@@ -4954,14 +4956,43 @@ static void fl_code_clicked(lv_event_t *e)
 /* Tapping a row. An unpaired handset in range pairs; a paired one is removed.
  *
  * ⚠️ Remove is not a nicety — it is the ONLY recovery when a pair offer is lost
- * and the two ends disagree about whether they share a key. See espnow.h. */
+ * and the two ends disagree about whether they share a key. See espnow.h.
+ *
+ * ⚠️ TWO TAPS TO REMOVE, AND IT DISARMS ITSELF — the same rule as Restart in
+ * the menu. One tap used to remove a pairing outright, and on a screen a child
+ * pokes at, that is a pairing lost by accident and a sibling who can't be
+ * texted until a grown-up re-pairs them.
+ *
+ * In-range rows carry the peer's ID, not its index: the peer list reorders as
+ * handsets come and go, and an index saved at draw time can name a different
+ * handset by the time the finger lifts. */
+#define FL_ARM_MS     5000
+#define FL_IN_RANGE   0x10000              /* user_data = FL_IN_RANGE | id */
+static int      s_fl_arm_slot = -1;        /* roster slot awaiting its 2nd tap */
+static uint32_t s_fl_arm_ms;
+
 static void fl_row_clicked(lv_event_t *e)
 {
-    int idx = (int)(intptr_t)lv_event_get_user_data(e);
-    if (idx >= 0) {                       /* an in-range peer, not yet paired */
+    intptr_t ud = (intptr_t)lv_event_get_user_data(e);
+    /* ⚠️ Test the SIGN, not the FL_IN_RANGE bit: a roster row's -(slot+1) is
+     * negative, so every high bit — FL_IN_RANGE included — is set. */
+    if (ud > 0) {                         /* an in-range peer, not yet paired */
         if (!fleet_has_pmk()) return;     /* nothing to derive a key from */
-        espnow_pair_with(idx);
+        uint16_t id = (uint16_t)(ud & 0xFFFF);
+        int n = espnow_peer_count();
+        for (int i = 0; i < n; i++)
+            if (espnow_peer_id(i) == id) { espnow_pair_with(i); break; }
+        s_fl_arm_slot = -1;
     } else {                              /* -(slot+1) => a roster entry */
+        int slot = (int)(-ud - 1);
+        uint32_t now = (uint32_t)(esp_timer_get_time() / 1000);
+        if (s_fl_arm_slot != slot || (int32_t)(now - s_fl_arm_ms) > FL_ARM_MS) {
+            s_fl_arm_slot = slot;
+            s_fl_arm_ms   = now;
+            fleet_refresh();
+            return;
+        }
+        s_fl_arm_slot = -1;
         /* 🚨 espnow_unpair(), NOT fleet_remove(). fleet_remove() only wipes the
          * stored key; the radio kept encrypting to that MAC with the old LMK,
          * so the very next pair offer went out ENCRYPTED and the other end -
@@ -4969,17 +5000,76 @@ static void fl_row_clicked(lv_event_t *e)
          * 2026-10-08 re-pairing handsets with a gateway: removing worked, pairing
          * again never did. espnow_unpair() was written for exactly this and had
          * no caller. */
-        const fleet_peer_t *p = fleet_at(-idx - 1);
+        const fleet_peer_t *p = fleet_at(slot);
         if (p) espnow_unpair(p->id);
     }
     fleet_refresh();
 }
 
+/* One row: a full-width button with one line of text. */
+static void fl_row(int pos, intptr_t ud, lv_color_t col, const char *text)
+{
+    lv_obj_t *row = lv_btn_create(fl_rows);
+    flat(row);
+    lv_obj_set_size(row, LCD_W - 16, 34);
+    lv_obj_align(row, LV_ALIGN_TOP_LEFT, 8, pos * 38);
+    lv_obj_set_style_bg_color(row, C_PANEL, 0);
+    lv_obj_set_style_bg_opa(row, LV_OPA_COVER, 0);
+    lv_obj_add_event_cb(row, fl_row_clicked, LV_EVENT_CLICKED, (void *)ud);
+    lv_obj_t *l = mk_label(row, &lv_font_montserrat_12, col, text);
+    lv_obj_align(l, LV_ALIGN_LEFT_MID, 8, 0);
+}
+
+static bool fl_is_paired(uint16_t id)
+{
+    for (int j = 0; j < FLEET_MAX; j++) {
+        const fleet_peer_t *p = fleet_at(j);
+        if (p && p->id == id) return true;
+    }
+    return false;
+}
+
+/* 🚨 REDRAW ONLY WHEN SOMETHING CHANGED, AND NEVER UNDER A FINGER.
+ *
+ * This runs from the 500ms tick, and it used to delete and rebuild every row
+ * every time. A tap whose press and release straddled a rebuild landed on a row
+ * that no longer existed, so CLICKED never fired — the tap simply vanished.
+ * That is why pairing took several tries (the builder, 2026-10-11, had put it
+ * down to the rows being too small). Now: build a short description of what
+ * the list would show, and only rebuild when it differs from what is on
+ * screen; and while the screen is being touched, leave the rows alone
+ * entirely — the next tick after the finger lifts catches up. */
 static void fleet_refresh(void)
 {
     if (!scr_fleet) return;
-    char line[96];
 
+    lv_indev_t *in = lv_indev_get_next(NULL);
+    if (in && in->proc.state == LV_INDEV_STATE_PRESSED) return;
+
+    uint32_t now = (uint32_t)(esp_timer_get_time() / 1000);
+    if (s_fl_arm_slot >= 0 && (int32_t)(now - s_fl_arm_ms) > FL_ARM_MS)
+        s_fl_arm_slot = -1;               /* the "tap again" window closed */
+
+    static char last_sig[256];
+    char sig[256];
+    int  sl = snprintf(sig, sizeof(sig), "%d%d%d|", fleet_has_pmk(),
+                       fleet_migration_open(), s_fl_arm_slot);
+    for (int i = 0; i < FLEET_MAX && sl < (int)sizeof(sig); i++) {
+        const fleet_peer_t *p = fleet_at(i);
+        if (p) sl += snprintf(sig + sl, sizeof(sig) - sl, "%d:%04X%d%s,", i,
+                              p->id, p->seen_encrypted, p->name);
+    }
+    int n = espnow_peer_count();
+    for (int i = 0; i < n && sl < (int)sizeof(sig); i++) {
+        uint16_t id = espnow_peer_id(i);
+        if (!fl_is_paired(id))
+            sl += snprintf(sig + sl, sizeof(sig) - sl, "%04X%s,", id,
+                           espnow_peer_name(i));
+    }
+    if (!strcmp(sig, last_sig)) return;
+    strlcpy(last_sig, sig, sizeof(last_sig));
+
+    char line[96];
     if (!fleet_has_pmk())
         snprintf(line, sizeof(line), "no fleet code yet - nothing is encrypted");
     else if (fleet_migration_open())
@@ -4995,52 +5085,30 @@ static void fleet_refresh(void)
     lv_obj_clean(fl_rows);
     int shown = 0;
 
-    /* Paired first — these are the fleet. Tap to remove. */
+    /* Paired first — these are the fleet. Tap twice to remove. */
     for (int i = 0; i < FLEET_MAX; i++) {
         const fleet_peer_t *p = fleet_at(i);
         if (!p) continue;
-        lv_obj_t *row = lv_btn_create(fl_rows);
-        flat(row);
-        lv_obj_set_size(row, LCD_W - 16, 34);
-        lv_obj_align(row, LV_ALIGN_TOP_LEFT, 8, shown * 38);
-        lv_obj_set_style_bg_color(row, C_PANEL, 0);
-        lv_obj_set_style_bg_opa(row, LV_OPA_COVER, 0);
-        lv_obj_add_event_cb(row, fl_row_clicked, LV_EVENT_CLICKED,
-                            (void *)(intptr_t)(-i - 1));
         char t[64];
-        snprintf(t, sizeof(t), "%u  %s  %s", p->device_no, p->name,
-                 p->seen_encrypted ? LV_SYMBOL_OK " locked" : "clear");
-        lv_obj_t *l = mk_label(row, &lv_font_montserrat_12,
-                               p->seen_encrypted ? C_GREEN : C_AMBER, t);
-        lv_obj_align(l, LV_ALIGN_LEFT_MID, 8, 0);
-        shown++;
+        if (i == s_fl_arm_slot)
+            snprintf(t, sizeof(t), "Remove %s?  tap again", p->name);
+        else
+            snprintf(t, sizeof(t), "%u  %s  %s", p->device_no, p->name,
+                     p->seen_encrypted ? LV_SYMBOL_OK " locked" : "clear");
+        fl_row(shown++, -i - 1,
+               i == s_fl_arm_slot   ? C_RED   :
+               p->seen_encrypted    ? C_GREEN : C_AMBER, t);
     }
 
     /* Then whoever else is in range and not yet paired. Tap to pair. */
-    int n = espnow_peer_count();
     for (int i = 0; i < n; i++) {
         uint16_t id = espnow_peer_id(i);
-        bool already = false;
-        for (int j = 0; j < FLEET_MAX; j++) {
-            const fleet_peer_t *p = fleet_at(j);
-            if (p && p->id == id) { already = true; break; }
-        }
-        if (already) continue;
-        lv_obj_t *row = lv_btn_create(fl_rows);
-        flat(row);
-        lv_obj_set_size(row, LCD_W - 16, 34);
-        lv_obj_align(row, LV_ALIGN_TOP_LEFT, 8, shown * 38);
-        lv_obj_set_style_bg_color(row, C_PANEL, 0);
-        lv_obj_set_style_bg_opa(row, LV_OPA_COVER, 0);
-        lv_obj_add_event_cb(row, fl_row_clicked, LV_EVENT_CLICKED,
-                            (void *)(intptr_t)i);
+        if (fl_is_paired(id)) continue;
         char t[64];
         snprintf(t, sizeof(t), "%s   %s", espnow_peer_name(i),
                  fleet_has_pmk() ? "tap to pair" : "set a code first");
-        lv_obj_t *l = mk_label(row, &lv_font_montserrat_12,
-                               fleet_has_pmk() ? C_BLUE : C_MUTED, t);
-        lv_obj_align(l, LV_ALIGN_LEFT_MID, 8, 0);
-        shown++;
+        fl_row(shown++, FL_IN_RANGE | id,
+               fleet_has_pmk() ? C_BLUE : C_MUTED, t);
     }
 
     if (!shown) {

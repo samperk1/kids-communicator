@@ -198,6 +198,43 @@ void CommRadio::ask_failed(const std::string &code, const std::string &message) 
   global_ask_relay.failed(code, message);
 }
 
+std::string CommRadio::slot_text(int slot) {
+  const fleet_peer_t *p = (slot >= 0 && slot < FLEET_MAX) ? fleet_at(slot) : nullptr;
+  if (p == nullptr)
+    return "empty";
+  char t[64];
+  snprintf(t, sizeof(t), "%s (%04X)%s", p->name, (unsigned) p->id,
+           p->seen_encrypted ? "" : " - not locked");
+  return t;
+}
+
+/* 🚨 espnow_unpair(), NOT fleet_remove() — the same rule as the handset's own
+ * Remove. fleet_remove() only wipes the stored key; the radio keeps encrypting
+ * to that MAC with the old LMK, so the handset's next pair offer arrives
+ * encrypted under a key it no longer holds and is dropped below the app, with
+ * nothing in any log. Found 2026-10-08. */
+void CommRadio::forget_slot(int slot) {
+  const fleet_peer_t *p = (slot >= 0 && slot < FLEET_MAX) ? fleet_at(slot) : nullptr;
+  if (p == nullptr) {
+    ESP_LOGI(TAG, "forget slot %d: already empty", slot + 1);
+    return;
+  }
+  /* A radio that never started has no driver entry to remove, and calling into
+   * esp_now before esp_now_init() crashes rather than returning an error. */
+  if (!espnow_running()) {
+    ESP_LOGW(TAG, "forget slot %d: radio not running yet, try again shortly", slot + 1);
+    return;
+  }
+  const uint16_t id = p->id;
+  char name[FLEET_NAME_LEN];
+  snprintf(name, sizeof(name), "%s", p->name);
+  const bool ok = espnow_unpair(id);
+  ESP_LOGI(TAG, "forget slot %d: %s (%04X) %s", slot + 1, name, (unsigned) id,
+           ok ? "forgotten - Remove this gateway on that handset, then pair again"
+              : "FAILED");
+  applog("[gw] forgot %04X from Home Assistant", (unsigned) id);
+}
+
 void CommRadio::dump_config() {
   ESP_LOGCONFIG(TAG, "Communicator radio:");
   ESP_LOGCONFIG(TAG, "  Fleet channel: %u", this->channel_);

@@ -111,3 +111,104 @@ voice_assistant:
   on_error:
     # The trigger names these `code` and `message`, not x/y.
     - lambda: 'id(fleet_radio)->ask_failed(code, message);'
+
+# 🔑 THE PAIRED HANDSETS, AND A WAY TO FORGET ONE AT A TIME.
+# Eight fixed slots because the roster holds at most eight handsets. Each shows
+# the name the handset gave itself, or "empty". Forgetting one leaves every
+# other pairing alone; then that handset must Remove this gateway on its own
+# Fleet screen and pair again.
+#
+# ⚠️ Fixed slots rather than one drop-down on purpose: ESPHome tells Home
+# Assistant what entities exist when it connects, so a drop-down whose choices
+# changed as handsets paired would show stale names until a reconnect.
+text_sensor:
+  - platform: template
+    name: Handset 1
+    icon: mdi:cellphone-link
+    update_interval: 5s
+    lambda: 'return id(fleet_radio)->slot_text(0);'
+  - platform: template
+    name: Handset 2
+    icon: mdi:cellphone-link
+    update_interval: 5s
+    lambda: 'return id(fleet_radio)->slot_text(1);'
+  - platform: template
+    name: Handset 3
+    icon: mdi:cellphone-link
+    update_interval: 5s
+    lambda: 'return id(fleet_radio)->slot_text(2);'
+  - platform: template
+    name: Handset 4
+    icon: mdi:cellphone-link
+    update_interval: 5s
+    lambda: 'return id(fleet_radio)->slot_text(3);'
+  - platform: template
+    name: Handset 5
+    icon: mdi:cellphone-link
+    update_interval: 5s
+    lambda: 'return id(fleet_radio)->slot_text(4);'
+  - platform: template
+    name: Handset 6
+    icon: mdi:cellphone-link
+    update_interval: 5s
+    lambda: 'return id(fleet_radio)->slot_text(5);'
+  - platform: template
+    name: Handset 7
+    icon: mdi:cellphone-link
+    update_interval: 5s
+    lambda: 'return id(fleet_radio)->slot_text(6);'
+  - platform: template
+    name: Handset 8
+    icon: mdi:cellphone-link
+    update_interval: 5s
+    lambda: 'return id(fleet_radio)->slot_text(7);'
+
+button:
+  - platform: template
+    name: Forget handset 1
+    icon: mdi:link-variant-off
+    entity_category: config
+    on_press:
+      - lambda: 'id(fleet_radio)->forget_slot(0);'
+  - platform: template
+    name: Forget handset 2
+    icon: mdi:link-variant-off
+    entity_category: config
+    on_press:
+      - lambda: 'id(fleet_radio)->forget_slot(1);'
+  - platform: template
+    name: Forget handset 3
+    icon: mdi:link-variant-off
+    entity_category: config
+    on_press:
+      - lambda: 'id(fleet_radio)->forget_slot(2);'
+  - platform: template
+    name: Forget handset 4
+    icon: mdi:link-variant-off
+    entity_category: config
+    on_press:
+      - lambda: 'id(fleet_radio)->forget_slot(3);'
+  - platform: template
+    name: Forget handset 5
+    icon: mdi:link-variant-off
+    entity_category: config
+    on_press:
+      - lambda: 'id(fleet_radio)->forget_slot(4);'
+  - platform: template
+    name: Forget handset 6
+    icon: mdi:link-variant-off
+    entity_category: config
+    on_press:
+      - lambda: 'id(fleet_radio)->forget_slot(5);'
+  - platform: template
+    name: Forget handset 7
+    icon: mdi:link-variant-off
+    entity_category: config
+    on_press:
+      - lambda: 'id(fleet_radio)->forget_slot(6);'
+  - platform: template
+    name: Forget handset 8
+    icon: mdi:link-variant-off
+    entity_category: config
+    on_press:
+      - lambda: 'id(fleet_radio)->forget_slot(7);'

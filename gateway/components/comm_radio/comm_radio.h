@@ -67,6 +67,14 @@ class CommRadio : public Component {
   void ask_finished();
   void ask_failed(const std::string &code, const std::string &message);
 
+  /* The paired handsets, one roster slot at a time (0..7), for Home Assistant.
+   * gateway.yaml shows each slot as a text sensor with a Forget button beside
+   * it, so ONE handset with a broken pairing can be fixed without wiping the
+   * others — before this, the only cure was erasing the gateway's NVS from a
+   * PC, which forgot every handset at once. */
+  std::string slot_text(int slot);
+  void forget_slot(int slot);
+
  protected:
   bool start_radio_();
 

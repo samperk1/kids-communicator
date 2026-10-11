@@ -77,12 +77,20 @@ static void ascii_fold(char *s)
 }
 static char s_note[96];   /* actionable hint shown on the talk screen */
 static bool s_was_playing;
+
+/* Waiting in line for a busy gateway: ask again every WAIT_RETRY_MS, give up
+ * after WAIT_IN_LINE_MS. One answer takes 5-15s, so 45s covers a couple of
+ * siblings ahead of you. */
+#define WAIT_RETRY_MS     2000
+#define WAIT_IN_LINE_MS   45000
+static volatile bool s_cancel_wait;   /* set from the LVGL thread (Back) */
 static int64_t s_press_ms;
 
 voice_stage_t voice_stage(void) { return s_stage; }
 const char   *voice_heard(void) { return s_heard; }
 const char   *voice_reply(void) { return s_reply; }
 const char   *voice_note(void)  { return s_note; }
+void          voice_cancel_wait(void) { s_cancel_wait = true; }
 
 /* ------------------------------------------------------------------ *
  * speaking the reply
@@ -218,16 +226,44 @@ static void do_talk(void)
      * as a failure. If the gateway path is selected and fails, it says so. */
     bool used_gw = false;
     if (settings_ask_via_gw() && espnow_gateway_id()) {
-        int r = ask_run(mic_wav(), mic_wav_len(), MIC_RATE,
+        /* 🔑 WAIT IN LINE RATHER THAN FAIL. The gateway takes one question at
+         * a time and cannot hold a second one: it has no PSRAM and streams each
+         * recording straight into HA through a 6KB window. This handset already
+         * holds its recording, and a BUSY reply comes back to the BEGIN frame
+         * before any audio is sent, so asking again every couple of seconds
+         * costs almost nothing. Not first-come-first-served — whoever asks first
+         * after the gateway frees up goes next — which is fine for a handful
+         * of kids. Back cancels the wait. */
+        int r;
+        int64_t wait_from = esp_timer_get_time();
+        s_cancel_wait = false;
+        while (1) {
+            r = ask_run(mic_wav(), mic_wav_len(), MIC_RATE,
                         s_heard, sizeof(s_heard), s_reply, sizeof(s_reply));
+            if (r != ASK_ERR_BUSY || s_cancel_wait ||
+                esp_timer_get_time() - wait_from > WAIT_IN_LINE_MS * 1000LL)
+                break;
+            if (!s_note[0]) applog("[talk] gateway busy - waiting in line");
+            strlcpy(s_note, "Waiting for helper...", sizeof(s_note));
+            for (int i = 0; i < WAIT_RETRY_MS / 100 && !s_cancel_wait; i++)
+                vTaskDelay(pdMS_TO_TICKS(100));
+        }
+        s_note[0] = 0;
         used_gw = true;
+        if (s_cancel_wait) {
+            applog("[talk] stopped waiting for the gateway");
+            s_stage = VOICE_IDLE;
+            goto done;
+        }
         if (r != ASK_OK || !s_heard[0]) {
             applog("[talk] gateway ask failed: err %d", r);
-            strlcpy(s_note, r == ASK_ERR_BUSY  ? "Gateway busy - try again" :
-                            r == ASK_ERR_HA    ? "Gateway reached HA, HA refused" :
-                            r == ASK_ERR_EMPTY ? "Nothing heard - say it again" :
-                            r == ASK_ERR_NET   ? "Gateway cannot reach HA" :
-                                                 "Lost audio to the gateway",
+            /* 🔑 WORDS FOR A KID, NOT FOR THE BUILDER. The exact cause is in the
+             * log line above; the screen only needs to say what to do next.
+             * "Unavailable" was too hard a word, so a gateway that is down, out
+             * of reach of HA, or still busy after the wait all read as busy. */
+            strlcpy(s_note, r == ASK_ERR_HA    ? "Helper didn't understand" :
+                            r == ASK_ERR_EMPTY ? "Didn't hear you - try again" :
+                                                 "Helper is busy - try later",
                     sizeof(s_note));
             s_stage = VOICE_ERROR;
             goto done;
@@ -239,7 +275,7 @@ static void do_talk(void)
      * thing is missing rather than failing as "the AI is broken". */
     if (!used_gw) {
         strlcpy(s_note, espnow_gateway_id() ? "Turn on 'Ask via GATEWAY'"
-                                            : "No gateway in range", sizeof(s_note));
+                                            : "No helper nearby", sizeof(s_note));
         s_stage = VOICE_ERROR;
         goto done;
     }

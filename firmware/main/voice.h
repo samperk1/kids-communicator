@@ -31,3 +31,7 @@ const char   *voice_reply(void);     /* last assistant reply */
 /* A specific, actionable hint ("keep holding"), or empty. Beats a generic
  * error for the person actually using this. */
 const char   *voice_note(void);
+
+/* Stop waiting in line for a busy gateway. Cheap; safe from an LVGL callback,
+ * and a no-op when nothing is waiting. */
+void          voice_cancel_wait(void);
